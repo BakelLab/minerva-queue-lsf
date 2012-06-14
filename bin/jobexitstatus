@@ -1,0 +1,192 @@
+#!/usr/bin/perl
+
+# 11.04.2010 12:26:08 EDT
+# Harm van Bakel <hvbakel@gmail.com>
+
+# MODULES
+use strict;
+use warnings;
+use Getopt::Long;
+
+# GLOBALS
+$ENV{PBS_OUTPUT}  ||= "$ENV{HOME}/pbs-output";    # Folder with pbs output files
+$ENV{SERVER_LOGS} ||= '/var/lib/torque/server_logs/';
+
+# ARGUMENTS
+my $sHelp         = 0;
+my $nFileCount    = 0;
+my $nHistoryDepth = 2;
+my $flVerbose     = 0;
+my $flRemove      = 0;
+GetOptions("help!"  => \$sHelp,
+           "n:i"    => \$nFileCount,
+           "t:i"    => \$nHistoryDepth,
+           "v!"     => \$flVerbose,
+           "r!"     => \$flRemove);
+           
+# PRINT HELP
+my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
+if ($sHelp) {
+    die <<HELP
+
+    $sScriptName [ -n | -i ]
+
+    Check the exit status of recently finished jobs. Can be used to make sure that
+    all jobs in a large job submission finished successfully.
+    
+    Options:
+    -n <integer>
+      Show exit status of the last n jobs, instead of the most recent job
+    -t <integer>
+      Number of days to look back into the server log files. Default: $nHistoryDepth
+    -v
+      Show output for failed jobs
+    -r
+      Remove the output for failed or missing jobs
+    
+    -help
+      This help message
+      
+HELP
+}
+
+
+##########
+## MAIN ##
+##########
+
+# Fail gracefully if the log folders don't exist
+die "Error: The job output folder does not exist\n" unless (-d $ENV{PBS_OUTPUT});
+
+# Sort the output files by job ID or modification date
+opendir my($dir), $ENV{PBS_OUTPUT} or die "Can't open $ENV{PBS_OUTPUT} : $!\n";
+my @asFiles = grep { -f "$ENV{PBS_OUTPUT}/$_" } readdir $dir;
+@asFiles = sort { eval('-M "$ENV{PBS_OUTPUT}/$a" <=> -M "$ENV{PBS_OUTPUT}/$b"') } @asFiles;
+
+# Set the number of files to check
+if ($nFileCount){
+   $nFileCount = scalar(@asFiles) if (scalar(@asFiles)<$nFileCount);
+}
+else{
+   $nFileCount = scalar(@asFiles);
+}
+
+# Parse files for exit status info
+die "No job output files found\n" unless($nFileCount);
+my %hExitStatus;
+my @asErrors;
+my @asMissing;
+for (my $i=$nFileCount-1; $i>=0; $i--){
+   my $nExitStatus = "NA";
+   open JOB, "tail $ENV{PBS_OUTPUT}/$asFiles[$i]|" or die "Error: can't open '$ENV{PBS_OUTPUT}/$asFiles[$i]'\n";
+   while (<JOB>){
+      $nExitStatus = $1 if(/\=\=\> Exit status    \: (.*)$/);
+   }
+   close JOB;
+   
+   # Check exit status
+   if ($nExitStatus eq 'NA'){
+      push @asMissing, $asFiles[$i];
+   }
+   elsif ($nExitStatus =~ /^0 /){
+      next;
+   }
+   else{
+      push @asErrors, $asFiles[$i];
+      $hExitStatus{$asFiles[$i]} = $nExitStatus;
+   }
+}
+
+# And finally print the result
+if (@asErrors and @asMissing){
+   print_missing(@asMissing);
+   print_errors(\@asErrors, \%hExitStatus, $flVerbose);
+   my $nOKcount = $nFileCount - @asMissing - @asErrors;
+   if ($nOKcount){
+      if ($nOKcount > 1){
+         print "$nOKcount other jobs finished normally\n";
+      }
+      else{
+         print "$nOKcount other job finished normally\n";
+      }
+   }
+}
+elsif (@asErrors){
+   print_errors(\@asErrors, \%hExitStatus, $flVerbose);
+   my $nOKcount = $nFileCount - @asErrors;
+   if ($nOKcount){
+      if ($nOKcount > 1){
+         print "$nOKcount other jobs finished normally\n";
+      }
+      else{
+         print "$nOKcount other job finished normally\n";
+      }
+   }
+}
+elsif (@asMissing){
+   print_missing(@asMissing);
+}
+else{
+   if ($nFileCount == scalar(@asFiles)){
+      print "All jobs with output in $ENV{HOME}/pbs-output finished successfully\n";
+   }
+   else{
+      if ($nFileCount == 1){
+         print "The last job with output in $ENV{HOME}/pbs-output finished successfully\n";
+      }
+      else{
+         print "The last $nFileCount jobs with output in $ENV{HOME}/pbs-output finished successfully\n";
+      }
+   }
+}
+
+# Remove the output of jobs with errors
+if ($flRemove){
+   if (@asErrors or @asMissing){
+      print "Removing output of failed and/or missing jobs\n";
+      foreach my $nJobID (@asErrors, @asMissing){
+         unlink glob "$ENV{HOME}/pbs-output/$nJobID.*";
+      }
+   }
+}
+
+#################
+## SUBROUTINES ##
+#################
+
+
+# print_missing
+#
+# Print list of IDs that have no info in server logs
+sub print_missing {
+   my @asArray = @_;
+   print "No job exit information found for the following jobs (check for epiloque):\n";
+   my $nCount = 8;
+   foreach my $sElement (@asArray){
+      print " $sElement";
+      $nCount   = $nCount ? $nCount-1 : 6;
+      print "\n" if ( ($nCount==0) or ($sElement eq $asArray[$#asArray]) );
+   }
+   print "\n";
+}
+
+
+# print_errors
+#
+# Print jobs that exited with an error
+sub print_errors {
+   my ($raErrors, $rhExitStatus, $flVerbose) = @_;
+
+   # Process errors
+   foreach my $sJobFile (@$raErrors){
+      print "Job '$sJobFile' failed with status: $rhExitStatus->{$sJobFile}\n";
+      
+      if ($flVerbose){
+         my $sJobOutput = join("/", $ENV{PBS_OUTPUT}, $sJobFile);
+         open OUT, $sJobOutput or die "Can't open $sJobOutput: $!\n";
+         while (<OUT>){print;}
+         close OUT;
+         print "\n"
+      }
+   }
+}

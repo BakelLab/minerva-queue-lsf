@@ -1,0 +1,120 @@
+#!/usr/bin/perl
+
+# 18.01.2010 12:52:40 EST
+# Harm van Bakel <hvbakel@gmail.com>
+
+# MODULES
+use strict;
+use warnings;
+use Getopt::Long;
+use Env '@PATH';
+
+# GLOBAL
+$ENV{QSTAT} ||= "qstat";
+$ENV{SHOWQ} ||= "/opt/moab/bin/showq";
+
+# GET PARAMETERS
+my $flHelp       = 0;
+my $flProcInfo   = 0;
+my $sServer      = "";
+GetOptions("help!"      => \$flHelp,
+           "procinfo!"  => \$flProcInfo,
+           "server:s"   => \$sServer);
+
+# PRINT HELP
+if ($flHelp) {
+   my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
+   die <<HELP
+
+   Usage: $sScriptName [options]
+
+   Gives a brief summary of all running and queued jobs.
+    
+    -s -server <string>
+      Show queue information for a different server
+    -p -procinfo
+      Show processors in use rather than jobs
+    -help
+      This help message
+   
+HELP
+}
+
+
+##########
+## MAIN ##
+##########
+
+# Check whether the qstat binary exist in path
+my $flQstatExists = grep -x "$_/$ENV{QSTAT}", @PATH;
+die "Error: qstat is not installed on this computer\n" unless($flQstatExists);
+
+my %hUserStats;
+my %hQueueStats;
+my %hTotalStats;
+my $sQueueCmd = $sServer ? join('', $ENV{QSTAT}, ' @',$sServer) : $ENV{QSTAT};
+my ($user,$queue,$status,$hostlist) = ("","","","");
+open QSTAT, "$sQueueCmd -f -1 |" or die "Error: could not run 'qstat' to get job status report: $!\n";
+while (<QSTAT>){
+   if(/^\s+Job_Owner = (\S+)@.*$/)        { $user     = $1; }
+   if(/^\s+job_state = (\S)$/)            { $status   = $1; }
+   if(/^\s+queue = (\S+)$/)               { $queue    = $1; }
+   if(/^\s+exec_host = (.+)$/)            { $hostlist = $1; }
+   
+   if (/^\s+$/ and $user){
+      $user = "*$user" if ($user eq $ENV{USER});
+      my @cpus = split /\+/, $hostlist;
+      my $cpus = scalar(@cpus);
+      $hUserStats{$user}{$queue}{$status} += $flProcInfo ? $cpus : 1;
+      $hQueueStats{$queue}{$status} += $flProcInfo ? $cpus : 1;
+      $hTotalStats{$status} += $flProcInfo ? $cpus : 1;
+      ($user,$queue,$status,$hostlist) = ("","","","");
+   }
+}
+close QSTAT;
+
+my @asJobStatus = ('R','Q','H','E','C');
+print "=========================================================================\n";
+print sprintf("%-12s %-14s %-8s %-8s %-8s %-8s %-8s", 'User','Queue','Running','Queued','Held','Exiting','Completed'), "\n";
+print "-------------------------------------------------------------------------\n";
+
+foreach my $user (sort(keys(%hUserStats))) {
+   foreach my $queue (sort(keys(%{$hUserStats{$user}}))) {
+      print sprintf("%-12s %-14s", $user, $queue);
+      foreach my $status (@asJobStatus){
+         if (exists($hUserStats{$user}{$queue}{$status})){
+            print sprintf(" %-8s", $hUserStats{$user}{$queue}{$status});
+         }
+         else{
+            print sprintf(" %-8s", 0);
+         }
+      }
+      print "\n";
+   }
+}
+
+print "-------------------------------------------------------------------------\n";
+foreach my $queue (sort(keys(%hQueueStats))) {
+   print sprintf("%-12s %-14s", '', $queue);
+   foreach my $status (@asJobStatus){
+      if (exists($hQueueStats{$queue}{$status})){
+         print sprintf(" %-8s", $hQueueStats{$queue}{$status});
+      }
+      else{
+         print sprintf(" %-8s", 0);
+      }
+   }
+   print "\n";
+}
+
+print "             ------------------------------------------------------------\n";
+print sprintf("%-12s %-14s", '', 'totals');
+foreach my $status (@asJobStatus){
+   if (exists($hTotalStats{$status})){
+      print sprintf(" %-8s", $hTotalStats{$status});
+   }
+   else{
+      print sprintf(" %-8s", 0);
+   }
+}
+print "\n";

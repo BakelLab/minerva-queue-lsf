@@ -1,0 +1,51 @@
+#!/usr/bin/perl
+
+# 14.10.2010 14:30:04 EDT
+# Harm van Bakel <hvbakel@gmail.com>
+
+# GLOBALS
+$ENV{SHOWQ}       ||= 'showq';        # Showq binary
+$ENV{RELEASEHOLD} ||= 'releasehold';  # Releasehold binary
+
+# MODULES
+use strict;
+use warnings;
+use Getopt::Long;
+
+# GET PARAMETERS
+my $sHelp        = 0;
+GetOptions("help!"   => \$sHelp);
+
+# PRINT HELP
+if ($sHelp) {
+   my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
+   die <<HELP
+
+   Usage: $sScriptName
+
+   Releases all current holds on jobs in the queueing system
+    
+    -help
+      This help message
+   
+HELP
+}
+
+
+##########
+## MAIN ##
+##########
+
+open SHOWQ, "$ENV{SHOWQ} |" or die "Error: can't run showq: $!\n";
+while (<SHOWQ>){
+   next if (/^\s*$/);
+   next if (/^ *#/);
+   s/[\n\r]+$//;
+   my (@asLine) = split /\s+/;
+   if (@asLine > 2){
+      if ($asLine[2] eq 'Deferred'){
+         system("$ENV{RELEASEHOLD} $asLine[0]")
+      }
+   }
+}
+close SHOWQ;

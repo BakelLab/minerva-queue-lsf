@@ -1,0 +1,66 @@
+#!/usr/bin/perl -w
+
+use strict;
+use English;
+
+my ($line, $job,$whoami);
+
+my $nPrompt = 1;
+while($nPrompt){
+   my $sProceed = &prompt_user("Are you really sure you want to delete all your running jobs (yes/no)?", 'no');
+   if (lc($sProceed) eq 'yes'){
+      $nPrompt=0;
+   }
+   elsif (lc($sProceed) eq 'no'){
+      die "No jobs were deleted.\n";
+   }
+   else{
+      print STDERR "Please answer either 'yes' or 'no\n";
+   }
+}
+
+if ($EUID == 0)
+{
+   print "This script can not run by root!\n";
+   exit 1;
+}
+else
+{
+   $whoami=`whoami`;
+   chop($whoami);
+   open (MYJOBS,"qstat -a | sort -k10,10 |");
+   while ($line = <MYJOBS>)
+   {
+      if ($line =~ /^[0-9]/ && $line =~ /$whoami/)
+      {
+         ($job, $line)=split(/\./,$line,2);
+         print "Deleting $job\t$line";
+         `qdel $job`;
+      }
+   }
+   close MYJOBS;
+}
+
+
+
+# prompt_user ($promptString, $defaultValue)
+#
+# if there is a default value, use the first print statement;
+# if no default is provided, print the second string.              
+sub prompt_user {
+    my ($promptString,$defaultValue) = @_;
+
+    if ($defaultValue) {
+	print $promptString, " [ ", $defaultValue, " ] : ";
+    } else {
+	print $promptString, " : ";
+    }
+    $| = 1;               # force a flush after our print
+    $_ = <STDIN>;         # get the input from STDIN (presumably the keyboard)
+    chomp;
+    if ($defaultValue) {
+	return $_ ? $_ : $defaultValue;    # return $_ if it has a value
+    } else {
+	return $_;
+    }
+}

@@ -1,0 +1,187 @@
+#!/usr/bin/perl
+
+# 27.08.2010 08:42:27 EDT
+# Harm van Bakel <hvbakel@gmail.com>
+
+# GLOBALS
+$ENV{PBSNODES} ||= 'pbsnodes';           # Torque pbsnodes command
+$ENV{DIAGNOSE} ||= '';                   # Moab/Maui diagnose command (leave empty if unavailable)
+$ENV{QSTAT}    ||= '/usr/bin/qstat';     # Torque qstat command
+
+# MODULES
+use strict;
+use warnings;
+use Getopt::Long;
+
+# GET PARAMETERS
+my $sHelp        = 0;
+GetOptions("help!"   => \$sHelp);
+
+# PRINT HELP
+if ($sHelp) {
+   my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
+   die <<HELP
+
+   Usage: $sScriptName
+
+   Displays a graphical summary of node occupancy.
+    
+    -help
+      This help message
+   
+HELP
+}
+
+
+##########
+## MAIN ##
+##########
+
+# Collect node info
+my $sCurrentNode = "";
+my %hNodes;
+my %hFsize  = (node=>8,state=>16,properties=>8,np=>16,loadave=>6,mem=>14,userlist=>5);
+open IN, "$ENV{PBSNODES} |" or die "Error: Can't run pbsnodes command: $!\n";
+while (<IN>){
+   next if (/^\s*$/);
+   next if (/^ *#/);
+   s/[\n\r]+$//;
+   
+   if (/^\w+/){
+      $sCurrentNode = $_ ;
+      $hFsize{node} = length($sCurrentNode) if(length($sCurrentNode) > $hFsize{node});
+   }
+   if (/^\s+state =/){
+      my $sState = (split /=\s*/)[1];
+      $hNodes{$sCurrentNode}{state} = $sState;
+      $hFsize{state} = length($sState) if(length($sState) > $hFsize{state});
+   }
+   if (/^\s+properties =/){
+      my $sProperties = (split /=\s*/)[1];
+      $sProperties =~ s/minerva,compute,//;
+      $hNodes{$sCurrentNode}{properties} = $sProperties;
+      $hFsize{properties} = length($sProperties) if(length($sProperties) > $hFsize{properties});
+   }
+   if (/^\s+np =/){
+      my $nNp = (split /=\s*/)[1];
+      $hNodes{$sCurrentNode}{np} = $nNp;
+      $hFsize{np} = $nNp if($nNp > $hFsize{np});
+   }
+   if (/^\s+jobs =/){
+      my @asJobs = split /, /;
+      $hNodes{$sCurrentNode}{jobs} = scalar(@asJobs);
+   }
+   if (/^\s+status =/){
+      my (@asPairs) = split /,/;
+      foreach my $sPair (@asPairs){
+         my ($sKey, $sVal) = split /=/, $sPair;
+         if ($sKey eq 'loadave'){
+            $hNodes{$sCurrentNode}{loadave} = $sVal;
+            if ($sVal){
+               $hFsize{loadave} = length($sVal)+1 if (length($sVal)+1 > $hFsize{loadave});
+            }
+         }
+      }
+   }
+}
+close IN;
+
+# Collect user info
+my %hNodeUsers;
+my ($user, $hostlist, $state) = ("","","");
+open QSTAT, "$ENV{QSTAT} -f -1 |" or die "Error: could not run 'qstat' to get job status report: $!\n";
+while (<QSTAT>){
+   if(/^\s+Job_Owner = (\S+)@.*$/)        { $user     = $1; }
+   if(/^\s+exec_host = (.+)$/)            { $hostlist = $1; }
+   if(/^\s+job_state = (\S+)$/)           { $state    = $1; }
+   if (/^\s+$/ and $state eq "R"){
+      $user = $user eq $ENV{USER} ? "=>$user<=" : "  $user";
+      my @asHostList = split /\+/, $hostlist;
+      foreach my $host (@asHostList){
+         $host =~ s/\/\d+$//;
+         $hNodeUsers{$host}{$user}++;
+      }
+      ($user, $hostlist, $state) = ("","","");
+   }
+}
+close QSTAT;
+foreach my $node (keys %hNodeUsers){
+   $hNodes{$node}{userlist} = join(",", sort keys(%{$hNodeUsers{$node}}));
+   $hFsize{userlist} = length($hNodes{$node}{userlist}) if (length($hNodes{$node}{userlist})) > $hFsize{userlist};
+}
+
+
+# Process diagnose to get memory stats if diagnose is available
+if ($ENV{DIAGNOSE}){
+   open DIAGNOSE, "$ENV{DIAGNOSE} -n |" or die "Error: Can't run diagnose command: $!\n";
+   while (<DIAGNOSE>){
+      next if (/^\s*$/);
+      next if (/^ *#/);
+      next if (/^---/);
+      s/[\n\r]+$//;
+      my (@asFields) = split /\s+/;
+      if ( ($asFields[3] =~ /^\d+\:\d+$/) and $asFields[0]){
+         my ($sAvailMem, $sTotMem) = split /:/, $asFields[3];
+         $sAvailMem = sprintf("%4.1f", $sAvailMem/1024);
+         $sTotMem   = sprintf("%4.1f", $sTotMem/1024);
+         $hNodes{$asFields[0]}{mem} = "${sAvailMem}G/${sTotMem}G";
+         $hFsize{mem} = length($hNodes{$asFields[0]}{mem})+1 if (length($hNodes{$asFields[0]}{mem})+1 > $hFsize{mem});
+      }
+   }
+   close DIAGNOSE;
+}
+
+# Process fieldsizes
+my $nTsize  = 0;
+foreach my $sKey (keys %hFsize){
+   $nTsize += $hFsize{$sKey};
+}
+$nTsize += scalar(keys %hFsize);
+$nTsize -= $hFsize{mem} unless($ENV{DIAGNOSE});
+
+
+# Print header
+print "\n-------------------------------------------------------------------------------\n";
+print "| LEGEND  | * Allocated busy | / Allocated idle | # Unallocated busy | - free |\n";
+print "-------------------------------------------------------------------------------\n\n";
+print "=" x $nTsize, "\n";
+if ($ENV{DIAGNOSE}){
+   printf "%-${hFsize{node}}s %-${hFsize{state}}s %-${hFsize{properties}}s  %-${hFsize{loadave}}s %-${hFsize{mem}}s %-${hFsize{np}}s %-${hFsize{userlist}}s\n", "Node", "State", "Property", "Load", "Mem (Avl/Tot)", "CPU status (see legend)", "Users";
+}
+else{
+   printf "%-${hFsize{node}}s %-${hFsize{state}}s %-${hFsize{properties}}s  %-${hFsize{loadave}}s %-${hFsize{np}}s %-${hFsize{userlist}}s\n", "Node", "State", "Property", "Load", "CPU status (see legend)", "Users";
+}
+print "=" x $nTsize, "\n";
+
+# Process the nodes
+foreach my $sNode (sort keys %hNodes){
+   $hNodes{$sNode}{properties} ||= 'NA';
+   $hNodes{$sNode}{jobs}       ||= 0;
+   $hNodes{$sNode}{mem}        ||= 'NA';
+   $hNodes{$sNode}{loadave}    ||= 'NA';
+   $hNodes{$sNode}{jobs}       ||= 0;
+   $hNodes{$sNode}{np}         ||= 0;
+   $hNodes{$sNode}{state}      ||= 'NA';
+   $hNodes{$sNode}{userlist}   ||= "";
+   
+   my ($nBusyProcs, $nBusyAlctProcs, $nIdleAlctProcs, $nExcesssProcs, $nAvailblProcs) = (0,0,0,0,$hNodes{$sNode}{np});
+   if ($hNodes{$sNode}{jobs}){
+      $nBusyProcs = $hNodes{$sNode}{loadave} ne 'NA' ? int($hNodes{$sNode}{loadave} + 0.5) : $hNodes{$sNode}{jobs};
+      $nBusyProcs = $hNodes{$sNode}{np} if ($nBusyProcs > $hNodes{$sNode}{np});
+      $nBusyAlctProcs = $nBusyProcs <= $hNodes{$sNode}{jobs} ? $nBusyProcs : $hNodes{$sNode}{jobs};
+      $nIdleAlctProcs = $nBusyProcs <= $hNodes{$sNode}{jobs} ? $hNodes{$sNode}{jobs} - $nBusyProcs : 0;
+      $nExcesssProcs  = $nBusyProcs >  $hNodes{$sNode}{jobs} ? $nBusyProcs - $hNodes{$sNode}{jobs} : 0;
+      $nAvailblProcs  = $hNodes{$sNode}{np} - $nBusyAlctProcs - $nIdleAlctProcs - $nExcesssProcs;
+   }
+   my $sProcs = "*" x $nBusyAlctProcs . "/" x $nIdleAlctProcs . "#" x $nExcesssProcs . "-" x $nAvailblProcs;
+   $sProcs    = "" if ($hNodes{$sNode}{state} =~ /down/);
+   
+   if ($ENV{DIAGNOSE}){
+      printf "%-${hFsize{node}}s %-${hFsize{state}}s %-${hFsize{properties}}s  %-${hFsize{loadave}}s %-${hFsize{mem}}s %-${hFsize{np}}s %-${hFsize{userlist}}s\n", 
+             $sNode, $hNodes{$sNode}{state}, $hNodes{$sNode}{properties}, $hNodes{$sNode}{loadave}, $hNodes{$sNode}{mem}, $sProcs, $hNodes{$sNode}{userlist};
+   }
+   else{
+      printf "%-${hFsize{node}}s %-${hFsize{state}}s %-${hFsize{properties}}s  %-${hFsize{loadave}}s %-${hFsize{np}}s %-${hFsize{userlist}}s\n", 
+             $sNode, $hNodes{$sNode}{state}, $hNodes{$sNode}{properties}, $hNodes{$sNode}{loadave}, $sProcs, $hNodes{$sNode}{userlist};
+   }
+}

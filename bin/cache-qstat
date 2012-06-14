@@ -1,0 +1,87 @@
+#!/bin/bash
+
+# Cache qstat output to prevent too many qstat request from
+# swamping the server
+
+# USAGE: qstat $@
+
+CMDPATH=/usr/local/bin/qstat
+CACHETIME=60
+
+# Make sure that every possible combination of arguments gets its own cache file
+PREFIX="${USER}."
+for ARG in "$@"
+do
+   case "$ARG" in
+   -f) PREFIX="${PREFIX}f";;
+   -a) PREFIX="${PREFIX}a";;
+   -e) PREFIX="${PREFIX}e";;
+   -i) PREFIX="${PREFIX}i";;
+   -r) PREFIX="${PREFIX}r";;
+   -n) PREFIX="${PREFIX}n";;
+   -1) PREFIX="${PREFIX}1";;
+   -s) PREFIX="${PREFIX}s";;
+   -G) PREFIX="${PREFIX}G";;
+   -M) PREFIX="${PREFIX}M";;
+   -R) PREFIX="${PREFIX}R";;
+   -u) PREFIX="${PREFIX}u";;
+   -Q) PREFIX="${PREFIX}Q";;
+   -q) PREFIX="${PREFIX}q";;
+   -B) PREFIX="${PREFIX}B";;
+   esac
+done
+TMPFILE="/tmp/qstat.${PREFIX}.tmp"
+
+
+if [ -f $TMPFILE ] ; then
+  TMPFILEMTIME=`stat -c %Z $TMPFILE`
+else
+  TMPFILEMTIME=0
+fi
+
+NOW=`date +%s`
+
+AGE=$(($NOW - $TMPFILEMTIME))
+
+#echo AGE=$AGE
+
+for i in 1 2 3;do
+  if [ "$AGE" -gt $CACHETIME ] ; then
+    #echo "cache is stale "
+
+    if [ -f $TMPFILE.1 ] ; then
+      #echo someone else is updating cache
+
+      sleep 5
+
+      NOW=`date +%s`
+
+      TMPFILEMTIME=`stat -c %Z $TMPFILE`
+
+      AGE=$(($NOW - $TMPFILEMTIME))
+    else
+      break;
+    fi
+  fi
+done
+
+if [ -f $TMPFILE.1 ] ; then
+  #echo someone else is hung
+
+  rm $TMPFILE.1
+fi
+
+if [ "$AGE" -gt $CACHETIME ] ; then
+  #echo updating cache
+
+  $CMDPATH $* > $TMPFILE.1
+
+  mv $TMPFILE.1 $TMPFILE
+
+fi
+
+#echo "using cache"
+
+cat $TMPFILE
+
+exit 0
