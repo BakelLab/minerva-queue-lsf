@@ -1,0 +1,72 @@
+#!/usr/bin/perl
+
+# Shows the output of the last N jobs that finished running on the cluster
+# Convenience function to avoid having to find the most recent job output file
+
+use strict;
+use warnings;
+use Getopt::Long;
+
+# GLOBALS
+$ENV{PBS_OUTPUT}  ||= "$ENV{HOME}/pbs-output";    # Folder with pbs output files
+
+# ARGUMENTS
+my $sHelp       = 0;
+my $nFileCount  = 1;
+my $nSortByID   = 0;
+GetOptions("help!"  => \$sHelp,
+           "i!"     => \$nSortByID,
+           "n:i"    => \$nFileCount);
+           
+# PRINT HELP
+my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
+if ($sHelp) {
+    die <<HELP
+
+    $sScriptName [ -n | -i ]
+
+    Shows the content of the pbs output file for the most recently finished job(s).
+    
+    Options:
+    -n <integer>
+      Show output of the last n files, instead of just the last one
+    -i
+      Use job ID rather than file modification time to select most recent jobs
+    -help
+      This help message
+      
+HELP
+}
+
+# START
+
+# Sort the output files by job ID or modification date
+opendir my($dir), $ENV{PBS_OUTPUT} or die "Can't open $ENV{PBS_OUTPUT} : $!\n";
+my @asFiles = grep { -f "$ENV{PBS_OUTPUT}/$_" } readdir $dir;
+if ($nSortByID){
+   my @anJobIDs = @asFiles;
+   for my $nID (@anJobIDs){
+      $nID =~ s/\..*//; # strip extension to only leave job ID
+   }
+   my @anSortOrder = (0 .. scalar(@asFiles)-1);
+   @anSortOrder    = sort {$anJobIDs[$b] <=> $anJobIDs[$a]} @anSortOrder;
+   @asFiles = @asFiles[@anSortOrder];
+}
+else{
+   @asFiles = sort { eval('-M "$ENV{PBS_OUTPUT}/$a" <=> -M "$ENV{PBS_OUTPUT}/$b"') } @asFiles;
+}
+
+
+
+# Print the sorted list of job outputs
+$nFileCount = scalar(@asFiles) if (scalar(@asFiles)<$nFileCount);
+die "No job output files found\n" unless($nFileCount);
+for (my $i=$nFileCount-1; $i>=0; $i--){
+   my $time = localtime((stat("$ENV{PBS_OUTPUT}/$asFiles[$i]"))[9]);
+   print "\n## $time #################################################################\n";
+   print "==> $asFiles[$i]\n";
+   open OUT, "$ENV{PBS_OUTPUT}/$asFiles[$i]" or die "Can't open $ENV{PBS_OUTPUT}/$asFiles[$i]: $!\n";
+   while (<OUT>){print;}
+   close OUT;
+   print "\n"
+}
