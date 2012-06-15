@@ -95,7 +95,7 @@ while (<QSTAT>){
    if(/^\s+exec_host = (.+)$/)            { $hostlist = $1; }
    if(/^\s+job_state = (\S+)$/)           { $state    = $1; }
    if (/^\s+$/ and $state eq "R"){
-      $user = $user eq $ENV{USER} ? "=>$user<=" : "  $user";
+      $user = $user eq $ENV{USER} ? "=>$user<=" : $user;
       my @asHostList = split /\+/, $hostlist;
       foreach my $host (@asHostList){
          $host =~ s/\/\d+$//;
@@ -107,6 +107,7 @@ while (<QSTAT>){
 close QSTAT;
 foreach my $node (keys %hNodeUsers){
    $hNodes{$node}{userlist} = join(",", sort keys(%{$hNodeUsers{$node}}));
+   $hNodes{$node}{userlist} = "  $hNodes{$node}{userlist}" unless($hNodes{$node}{userlist} =~ /^=>/);
    $hFsize{userlist} = length($hNodes{$node}{userlist}) if (length($hNodes{$node}{userlist})) > $hFsize{userlist};
 }
 
