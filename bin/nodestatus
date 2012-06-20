@@ -7,6 +7,7 @@
 $ENV{PBSNODES} ||= 'pbsnodes';           # Torque pbsnodes command
 $ENV{DIAGNOSE} ||= '';                   # Moab/Maui diagnose command (leave empty if unavailable)
 $ENV{QSTAT}    ||= '/usr/bin/qstat';     # Torque qstat command
+$ENV{SHOWQ}    ||= 'showq';              # Moab showq command
 
 # MODULES
 use strict;
@@ -86,8 +87,23 @@ while (<IN>){
 }
 close IN;
 
-# Collect user info
+# Collect user info from showq
 my %hNodeUsers;
+open SHOWQ, "$ENV{SHOWQ} -r |" or die "Error: could not run 'showq' to get job status report: $!\n";
+while (<SHOWQ>){
+   next if (/^\s*$/);
+   next if (/^ *#/);
+   s/[\n\r]+$//;
+   if (/^\d+\[*\d*\]*\s+R/){
+      my (@asLine) = split /\s+/;
+      my $node = $asLine[8];
+      my $user = $ENV{USER} eq $asLine[6] ? "=>$asLine[6]<=" : $asLine[6];
+      $hNodeUsers{$node}{$user}++;
+   }
+}
+close SHOWQ;
+
+# Collect user info from qstat
 my ($user, $hostlist, $state) = ("","","");
 open QSTAT, "$ENV{QSTAT} -f -1 |" or die "Error: could not run 'qstat' to get job status report: $!\n";
 while (<QSTAT>){
@@ -105,6 +121,8 @@ while (<QSTAT>){
    }
 }
 close QSTAT;
+
+# Process node info
 foreach my $node (keys %hNodeUsers){
    $hNodes{$node}{userlist} = join(",", sort keys(%{$hNodeUsers{$node}}));
    $hNodes{$node}{userlist} = "  $hNodes{$node}{userlist}" unless($hNodes{$node}{userlist} =~ /^=>/);
