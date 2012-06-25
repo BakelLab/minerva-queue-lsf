@@ -74,7 +74,7 @@ while (<QSTAT>){
             $rescpus += $resnodes * $resppn;
          }
       }
-      $cpus |= $rescpus if $rescpus;
+      $cpus ||= $rescpus if $rescpus;
       $hUserStats{$user}{$queue}{$status} += $flProcInfo ? $cpus : 1;
       $hQueueStats{$queue}{$status} += $flProcInfo ? $cpus : 1;
       $hTotalStats{$status} += $flProcInfo ? $cpus : 1;
