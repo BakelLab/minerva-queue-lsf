@@ -66,7 +66,7 @@ while (<IN>){
    if (/^\s+np =/){
       my $nNp = (split /=\s*/)[1];
       $hNodes{$sCurrentNode}{np} = $nNp;
-      $hFsize{np} = $nNp if($nNp > $hFsize{np});
+      $hFsize{np} = $nNp+1 if($nNp > $hFsize{np});
    }
    if (/^\s+jobs =/){
       my @asJobs = split /, /;
@@ -96,7 +96,7 @@ while (<QSTAT>){
    if(/^\s+exec_host = (.+)$/)            { $hostlist = $1; }
    if(/^\s+job_state = (\S+)$/)           { $state    = $1; }
    if (/^\s+$/ and $state eq "R"){
-      $user = $user eq $ENV{USER} ? "=>$user<=" : $user;
+      $user = $user eq $ENV{USER} ? "\e[0;46m${user}\e[0m" : $user;
       my @asHostList = split /\+/, $hostlist;
       foreach my $host (@asHostList){
          $host =~ s/\/\d+$//;
@@ -110,7 +110,6 @@ close QSTAT;
 # Assign a list of users to each node
 foreach my $node (keys %hNodeUsers){
    $hNodes{$node}{userlist} = join(",", sort keys(%{$hNodeUsers{$node}}));
-   $hNodes{$node}{userlist} = "  $hNodes{$node}{userlist}" unless($hNodes{$node}{userlist} =~ /^=>/);
    $hFsize{userlist} = length($hNodes{$node}{userlist}) if (length($hNodes{$node}{userlist})) > $hFsize{userlist};
 }
 
@@ -135,7 +134,7 @@ if ($ENV{DIAGNOSE}){
    close DIAGNOSE;
 }
 
-# Update the fieldsize hash with the maximum length of each field
+# Get total displayed width from individual fields
 my $nTsize  = 0;
 foreach my $sKey (keys %hFsize){
    $nTsize += $hFsize{$sKey};
@@ -153,7 +152,7 @@ if ($ENV{DIAGNOSE}){
    printf "%-${hFsize{node}}s %-${hFsize{state}}s %-${hFsize{properties}}s  %-${hFsize{loadave}}s %-${hFsize{mem}}s %-${hFsize{np}}s %-${hFsize{userlist}}s\n", "Node", "State", "Property", "Load", "Mem (Avl/Tot)", "CPU status (see legend)", "Users";
 }
 else{
-   printf "%-${hFsize{node}}s %-${hFsize{state}}s %-${hFsize{properties}}s  %-${hFsize{loadave}}s %-${hFsize{np}}s %-${hFsize{userlist}}s\n", "Node", "State", "Property", "Load", "CPU status (see legend)", "Users";
+   printf "%-${hFsize{node}}s %-${hFsize{state}}s %-${hFsize{properties}}s  %-${hFsize{loadave}}s %-${hFsize{np}}s  %-${hFsize{userlist}}s\n", "Node", "State", "Property", "Load", "CPU status (see legend)", "Users";
 }
 print "=" x $nTsize, "\n";
 

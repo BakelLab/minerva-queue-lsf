@@ -63,7 +63,7 @@ while (<QSTAT>){
    if(/^\s+Resource_List.nodes = (.+)$/)  { $reslist  = $1; }
    
    if (/^\s+$/ and $user){
-      $user = "*$user" if ($user eq $ENV{USER});
+      $user = "*\e[0;46m${user}\e[0m" if ($user eq $ENV{USER});
       my @cpus = split /\+/, $hostlist;
       my $cpus = scalar(@cpus);
       my $rescpus = 0;
@@ -90,7 +90,14 @@ print "-------------------------------------------------------------------------
 
 foreach my $user (sort(keys(%hUserStats))) {
    foreach my $queue (sort(keys(%{$hUserStats{$user}}))) {
-      print sprintf("%-12s %-14s", $user, $queue);
+      if ($user =~ /^\*/){
+         my $formatted = $user;
+         $formatted =~ s/^\*//;
+         print sprintf("%-23s %-14s", $formatted, $queue);
+      }
+      else{
+         print sprintf("%-12s %-14s", $user, $queue);
+      }
       foreach my $status (@asJobStatus){
          if (exists($hUserStats{$user}{$queue}{$status})){
             print sprintf(" %-8s", $hUserStats{$user}{$queue}{$status});
