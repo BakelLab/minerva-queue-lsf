@@ -38,7 +38,7 @@ HELP
 ## MAIN ##
 ##########
 
-# Collect node info
+# Collect node info from pbsnodes
 my $sCurrentNode = "";
 my %hNodes;
 my %hFsize  = (node=>8,state=>16,properties=>8,np=>16,loadave=>6,mem=>14,userlist=>5);
@@ -87,25 +87,10 @@ while (<IN>){
 }
 close IN;
 
-# Collect user info from showq
+# Collect detailed job info from qstat
 my %hNodeUsers;
-open SHOWQ, "$ENV{SHOWQ} -r |" or die "Error: could not run 'showq' to get job status report: $!\n";
-while (<SHOWQ>){
-   next if (/^\s*$/);
-   next if (/^ *#/);
-   s/[\n\r]+$//;
-   if (/^\d+\[*\d*\]*\s+R/){
-      my (@asLine) = split /\s+/;
-      my $node = $asLine[8];
-      my $user = $ENV{USER} eq $asLine[6] ? "=>$asLine[6]<=" : $asLine[6];
-      $hNodeUsers{$node}{$user}++;
-   }
-}
-close SHOWQ;
-
-# Collect user info from qstat
 my ($user, $hostlist, $state) = ("","","");
-open QSTAT, "$ENV{QSTAT} -f -1 |" or die "Error: could not run 'qstat' to get job status report: $!\n";
+open QSTAT, "$ENV{QSTAT} -t -f -1 |" or die "Error: could not run 'qstat' to get job status report: $!\n";
 while (<QSTAT>){
    if(/^\s+Job_Owner = (\S+)@.*$/)        { $user     = $1; }
    if(/^\s+exec_host = (.+)$/)            { $hostlist = $1; }
@@ -122,7 +107,7 @@ while (<QSTAT>){
 }
 close QSTAT;
 
-# Process node info
+# Assign a list of users to each node
 foreach my $node (keys %hNodeUsers){
    $hNodes{$node}{userlist} = join(",", sort keys(%{$hNodeUsers{$node}}));
    $hNodes{$node}{userlist} = "  $hNodes{$node}{userlist}" unless($hNodes{$node}{userlist} =~ /^=>/);
@@ -150,7 +135,7 @@ if ($ENV{DIAGNOSE}){
    close DIAGNOSE;
 }
 
-# Process fieldsizes
+# Update the fieldsize hash with the maximum length of each field
 my $nTsize  = 0;
 foreach my $sKey (keys %hFsize){
    $nTsize += $hFsize{$sKey};
@@ -159,7 +144,7 @@ $nTsize += scalar(keys %hFsize);
 $nTsize -= $hFsize{mem} unless($ENV{DIAGNOSE});
 
 
-# Print header
+# Print output header and legend
 print "\n-------------------------------------------------------------------------------\n";
 print "| LEGEND  | * Allocated busy | / Allocated idle | # Unallocated busy | - free |\n";
 print "-------------------------------------------------------------------------------\n\n";
@@ -172,7 +157,7 @@ else{
 }
 print "=" x $nTsize, "\n";
 
-# Process the nodes
+# Output the details for each node
 foreach my $sNode (sort keys %hNodes){
    $hNodes{$sNode}{properties} ||= 'NA';
    $hNodes{$sNode}{jobs}       ||= 0;

@@ -53,22 +53,32 @@ my %hUserStats;
 my %hQueueStats;
 my %hTotalStats;
 my $sQueueCmd = $sServer ? join('', $ENV{QSTAT}, ' @',$sServer) : $ENV{QSTAT};
-my ($user,$queue,$status,$hostlist) = ("","","","");
-open QSTAT, "$sQueueCmd -f -1 |" or die "Error: could not run 'qstat' to get job status report: $!\n";
+my ($user,$queue,$status,$hostlist,$reslist) = ("","","","","");
+open QSTAT, "$sQueueCmd -t -f -1 |" or die "Error: could not run 'qstat' to get job status report: $!\n";
 while (<QSTAT>){
    if(/^\s+Job_Owner = (\S+)@.*$/)        { $user     = $1; }
    if(/^\s+job_state = (\S)$/)            { $status   = $1; }
    if(/^\s+queue = (\S+)$/)               { $queue    = $1; }
    if(/^\s+exec_host = (.+)$/)            { $hostlist = $1; }
+   if(/^\s+Resource_List.nodes = (.+)$/)  { $reslist  = $1; }
    
    if (/^\s+$/ and $user){
       $user = "*$user" if ($user eq $ENV{USER});
       my @cpus = split /\+/, $hostlist;
       my $cpus = scalar(@cpus);
+      my $rescpus = 0;
+      if ($reslist){
+         my (@asNodeList) = split /\+/, $reslist;
+         foreach my $sNodeListEntry (@asNodeList){
+            my ($resnodes, $resppn) = split /:.*ppn=/, $sNodeListEntry;
+            $rescpus += $resnodes * $resppn;
+         }
+      }
+      $cpus |= $rescpus if $rescpus;
       $hUserStats{$user}{$queue}{$status} += $flProcInfo ? $cpus : 1;
       $hQueueStats{$queue}{$status} += $flProcInfo ? $cpus : 1;
       $hTotalStats{$status} += $flProcInfo ? $cpus : 1;
-      ($user,$queue,$status,$hostlist) = ("","","","");
+      ($user,$queue,$status,$hostlist,$reslist) = ("","","","","");
    }
 }
 close QSTAT;
