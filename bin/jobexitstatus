@@ -104,10 +104,10 @@ if (@asErrors and @asMissing){
    my $nOKcount = $nFileCount - @asMissing - @asErrors;
    if ($nOKcount){
       if ($nOKcount > 1){
-         print "$nOKcount other jobs finished normally\n";
+         print "$nOKcount other jobs exited normally\n\n";
       }
       else{
-         print "$nOKcount other job finished normally\n";
+         print "$nOKcount other job exited normally\n\n";
       }
    }
 }
@@ -116,10 +116,10 @@ elsif (@asErrors){
    my $nOKcount = $nFileCount - @asErrors;
    if ($nOKcount){
       if ($nOKcount > 1){
-         print "$nOKcount other jobs finished normally\n";
+         print "$nOKcount other jobs exited normally\n\n";
       }
       else{
-         print "$nOKcount other job finished normally\n";
+         print "$nOKcount other job exited normally\n\n";
       }
    }
 }
@@ -128,14 +128,14 @@ elsif (@asMissing){
 }
 else{
    if ($nFileCount == scalar(@asFiles)){
-      print "All jobs with output in $ENV{HOME}/pbs-output finished successfully\n";
+      print "All jobs with output in $ENV{HOME}/pbs-output exited normally\n\n";
    }
    else{
       if ($nFileCount == 1){
-         print "The last job with output in $ENV{HOME}/pbs-output finished successfully\n";
+         print "The last job with output in $ENV{HOME}/pbs-output exited normally\n\n";
       }
       else{
-         print "The last $nFileCount jobs with output in $ENV{HOME}/pbs-output finished successfully\n";
+         print "The last $nFileCount jobs with output in $ENV{HOME}/pbs-output exited normally\n\n";
       }
    }
 }
@@ -144,8 +144,8 @@ else{
 if ($flRemove){
    if (@asErrors or @asMissing){
       print "Removing output of failed and/or missing jobs\n";
-      foreach my $nJobID (@asErrors, @asMissing){
-         unlink glob "$ENV{HOME}/pbs-output/$nJobID.*";
+      foreach my $sJob (@asErrors, @asMissing){
+         unlink glob "$ENV{PBS_OUTPUT}/$sJob";
       }
    }
 }
@@ -167,7 +167,7 @@ sub print_missing {
       $nCount   = $nCount ? $nCount-1 : 6;
       print "\n" if ( ($nCount==0) or ($sElement eq $asArray[$#asArray]) );
    }
-   print "\n";
+   print "\n\n";
 }
 
 
@@ -179,14 +179,15 @@ sub print_errors {
 
    # Process errors
    foreach my $sJobFile (@$raErrors){
-      print "Job '$sJobFile' failed with status: $rhExitStatus->{$sJobFile}\n";
+      print "Job '$sJobFile' failed: $rhExitStatus->{$sJobFile}\n";
       
       if ($flVerbose){
          my $sJobOutput = join("/", $ENV{PBS_OUTPUT}, $sJobFile);
          open OUT, $sJobOutput or die "Can't open $sJobOutput: $!\n";
          while (<OUT>){print;}
          close OUT;
-         print "\n"
+         print "\n";
       }
    }
+   print "\n";
 }
