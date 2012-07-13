@@ -53,7 +53,8 @@ my %hUserStats;
 my %hQueueStats;
 my %hTotalStats;
 my $sQueueCmd = $sServer ? join('', $ENV{QSTAT}, ' @',$sServer) : $ENV{QSTAT};
-my ($user,$queue,$status,$hostlist,$reslist) = ("","","","","");
+my ($user,$queue,$status,$hostlist,$reslist,$ncpus) = ("","","","","","");
+my $nFailedCpuStats = 0;
 open QSTAT, "$sQueueCmd -t -f -1 |" or die "Error: could not run 'qstat' to get job status report: $!\n";
 while (<QSTAT>){
    if(/^\s+Job_Owner = (\S+)@.*$/)        { $user     = $1; }
@@ -61,6 +62,7 @@ while (<QSTAT>){
    if(/^\s+queue = (\S+)$/)               { $queue    = $1; }
    if(/^\s+exec_host = (.+)$/)            { $hostlist = $1; }
    if(/^\s+Resource_List.nodes = (.+)$/)  { $reslist  = $1; }
+   if(/^\s+Resource_List.ncpus = (.+)$/)  { $ncpus    = $1; }
    
    if (/^\s+$/ and $user){
       $user = "*\e[0;46m${user}\e[0m" if ($user eq $ENV{USER});
@@ -68,10 +70,17 @@ while (<QSTAT>){
       my $cpus = scalar(@cpus);
       my $rescpus = 0;
       if ($reslist){
-         my (@asNodeList) = split /\+/, $reslist;
-         foreach my $sNodeListEntry (@asNodeList){
-            my ($resnodes, $resppn) = split /:.*ppn=/, $sNodeListEntry;
+         my ($resnodes, $resppn) = split /:.*ppn=/, $reslist;
+         if ($resppn){
             $rescpus += $resnodes * $resppn;
+         }
+         else{
+            if ($ncpus){
+               $rescpus = $ncpus;
+            }
+            else{
+               $nFailedCpuStats++ unless($cpus);
+            }
          }
       }
       $cpus ||= $rescpus if $rescpus;
@@ -82,6 +91,7 @@ while (<QSTAT>){
    }
 }
 close QSTAT;
+
 
 my @asJobStatus = ('R','Q','H','E','C');
 print "=========================================================================\n";
@@ -135,3 +145,6 @@ foreach my $status (@asJobStatus){
    }
 }
 print "\n";
+
+# Make sure we warn in case of issues with CPU counts
+warn("Warning: could not determine accurate CPU counts for $nFailedCpuStats jobs\n") if ($nFailedCpuStats and $flProcInfo);
