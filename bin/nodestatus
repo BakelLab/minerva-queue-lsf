@@ -95,7 +95,7 @@ while (<QSTAT>){
    if(/^\s+Job_Owner = (\S+)@.*$/)        { $user     = $1; }
    if(/^\s+exec_host = (.+)$/)            { $hostlist = $1; }
    if(/^\s+job_state = (\S+)$/)           { $state    = $1; }
-   if (/^\s+$/ and $state eq "R"){
+   if (/^Job Id: / and $state eq "R"){
       $user = $user eq $ENV{USER} ? "\e[0;46m${user}\e[0m" : $user;
       my @asHostList = split /\+/, $hostlist;
       foreach my $host (@asHostList){

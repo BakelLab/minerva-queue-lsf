@@ -16,10 +16,12 @@ $ENV{SHOWQ} ||= "/opt/moab/bin/showq";
 # GET PARAMETERS
 my $flHelp       = 0;
 my $flProcInfo   = 0;
+my $flGpuInfo    = 0;
 my $sServer      = "";
 GetOptions("help!"      => \$flHelp,
            "procinfo!"  => \$flProcInfo,
-           "server:s"   => \$sServer);
+           "server:s"   => \$sServer,
+           "gpuinfo!"   => \$flGpuInfo);
 
 # PRINT HELP
 if ($flHelp) {
@@ -34,6 +36,8 @@ if ($flHelp) {
       Show queue information for a different server
     -p -procinfo
       Show processors in use rather than jobs
+    -g -gpuinfo
+      Show GPUs in use rather than jobs
     -help
       This help message
    
@@ -49,6 +53,7 @@ HELP
 my $flQstatExists = grep -x "$_/$ENV{QSTAT}", @PATH;
 die "Error: qstat is not installed on this computer\n" unless($flQstatExists);
 
+# Collect job or CPU count stats
 my %hUserStats;
 my %hQueueStats;
 my %hTotalStats;
@@ -64,29 +69,62 @@ while (<QSTAT>){
    if(/^\s+Resource_List.nodes = (.+)$/)  { $reslist  = $1; }
    if(/^\s+Resource_List.ncpus = (.+)$/)  { $ncpus    = $1; }
    
-   if (/^\s+$/ and $user){
+   if (/^Job Id: / and $user){
       $user = "*\e[0;46m${user}\e[0m" if ($user eq $ENV{USER});
-      my @cpus = split /\+/, $hostlist;
-      my $cpus = scalar(@cpus);
-      my $rescpus = 0;
-      if ($reslist){
-         my ($resnodes, $resppn) = split /:.*ppn=/, $reslist;
-         if ($resppn){
-            $rescpus += $resnodes * $resppn;
-         }
-         else{
-            if ($ncpus){
-               $rescpus = $ncpus;
+      
+      my $flPUinfo = $flProcInfo + $flGpuInfo;
+      if ($flPUinfo){
+         my ($rescpus,$resgpus) = (0,0,0);
+         
+         # First try to obtain the number of CPUs from the resource list
+         if ($reslist){
+            my @asNodeSpecs = split /\+/, $reslist;
+            foreach my $sNodeSpec (@asNodeSpecs){
+               my ($sNodeHostOrCount, @asSpecList) = split /\:/, $sNodeSpec;
+               my $nNodeCount = ($sNodeHostOrCount =~ /^\d+$/) ? $sNodeHostOrCount : 1;
+               foreach my $sSpec (@asSpecList){
+                  my ($sKey, $nValue) = split /=/, $sSpec;
+                  if (lc($sKey) eq "ppn"){
+                     $rescpus += $nNodeCount * $nValue;
+                  }
+                  if (lc($sKey) eq "gpus"){
+                     $resgpus += $nNodeCount * $nValue;
+                  }
+               }
             }
-            else{
-               $nFailedCpuStats++ unless($cpus);
-            }
          }
+         
+         # Second, try to get the number of CPUs from the host list
+         if ($rescpus==0 and $hostlist){
+            my @cpus = split /\+/, $hostlist;
+            $rescpus = scalar(@cpus);
+         }
+         
+         # Third, try to parse it from the ncpu field if available
+         if ($rescpus==0 and $ncpus){
+            $rescpus = $ncpus;
+         }
+         
+         # Check if we have collected any CPU and GPU info at this stage
+         if ($rescpus==0 and $resgpus==0){
+            $nFailedCpuStats++;
+         }
+         
+         # Collect all processing unit counts (gpus and cpus)
+         my $nTotPUs = 0;
+         $nTotPUs += $rescpus if ($flProcInfo);
+         $nTotPUs += $resgpus if ($flGpuInfo);
+         
+         # Increment user stats
+         $hUserStats{$user}{$queue}{$status} += $nTotPUs;
+         $hQueueStats{$queue}{$status}       += $nTotPUs;
+         $hTotalStats{$status}               += $nTotPUs;
       }
-      $cpus ||= $rescpus if $rescpus;
-      $hUserStats{$user}{$queue}{$status} += $flProcInfo ? $cpus : 1;
-      $hQueueStats{$queue}{$status} += $flProcInfo ? $cpus : 1;
-      $hTotalStats{$status} += $flProcInfo ? $cpus : 1;
+      else{
+         $hUserStats{$user}{$queue}{$status}++;
+         $hQueueStats{$queue}{$status}++;
+         $hTotalStats{$status}++;
+      }
       ($user,$queue,$status,$hostlist,$reslist) = ("","","","","");
    }
 }
