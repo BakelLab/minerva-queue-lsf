@@ -69,7 +69,7 @@ while (<QSTAT>){
    if(/^\s+Resource_List.nodes = (.+)$/)  { $reslist  = $1; }
    if(/^\s+Resource_List.ncpus = (.+)$/)  { $ncpus    = $1; }
    
-   if (/^Job Id: / and $user){
+   if ( (/^Job Id: / or eof) and $user){
       $user = "*\e[0;46m${user}\e[0m" if ($user eq $ENV{USER});
       
       my $flPUinfo = $flProcInfo + $flGpuInfo;
@@ -125,7 +125,7 @@ while (<QSTAT>){
          $hQueueStats{$queue}{$status}++;
          $hTotalStats{$status}++;
       }
-      ($user,$queue,$status,$hostlist,$reslist) = ("","","","","");
+      ($user,$queue,$status,$hostlist,$reslist,$ncpus) = ("","","","","","");
    }
 }
 close QSTAT;
