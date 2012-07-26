@@ -160,14 +160,15 @@ if ($flRemove){
 # Print list of IDs that have no info in server logs
 sub print_missing {
    my @asArray = @_;
-   print "No job exit information found for the following jobs (check for epiloque):\n";
-   my $nCount = 8;
+   print "-------------------------------------------------------\n";
+   print "| No exit information found in these job output files |\n";
+   print "-------------------------------------------------------\n";
+   my $sRelPath = $ENV{PBS_OUTPUT};
+   $sRelPath =~ s/^$ENV{HOME}/~/;
    foreach my $sElement (@asArray){
-      print " $sElement";
-      $nCount   = $nCount ? $nCount-1 : 6;
-      print "\n" if ( ($nCount==0) or ($sElement eq $asArray[$#asArray]) );
+      print "  $sRelPath/$sElement\n";
    }
-   print "\n\n";
+   print "\n";
 }
 
 
@@ -176,11 +177,15 @@ sub print_missing {
 # Print jobs that exited with an error
 sub print_errors {
    my ($raErrors, $rhExitStatus, $flVerbose) = @_;
+   print "-------------------------------------------------------\n";
+   print "| The following jobs failed with non-zero exit status |\n";
+   print "-------------------------------------------------------\n";
+   my $sRelPath = $ENV{PBS_OUTPUT};
+   $sRelPath =~ s/^$ENV{HOME}/~/;
 
    # Process errors
    foreach my $sJobFile (@$raErrors){
-      print "Job '$sJobFile' failed: $rhExitStatus->{$sJobFile}\n";
-      
+      print "  $sRelPath/$sJobFile ==> $rhExitStatus->{$sJobFile}\n";
       if ($flVerbose){
          my $sJobOutput = join("/", $ENV{PBS_OUTPUT}, $sJobFile);
          open OUT, $sJobOutput or die "Can't open $sJobOutput: $!\n";
