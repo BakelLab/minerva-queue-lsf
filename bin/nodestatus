@@ -89,20 +89,20 @@ close IN;
 
 # Collect detailed job info from qstat
 my %hNodeUsers;
-my ($user, $hostlist, $state) = ("","","");
-open QSTAT, "$ENV{QSTAT} -t -f -1 |" or die "Error: could not run 'qstat' to get job status report: $!\n";
+open QSTAT, "$ENV{QSTAT} -t -r -n -1 |" or die "Error: could not run 'qstat' to get job status report: $!\n";
 while (<QSTAT>){
-   if(/^\s+Job_Owner = (\S+)@.*$/)        { $user     = $1; }
-   if(/^\s+exec_host = (.+)$/)            { $hostlist = $1; }
-   if(/^\s+job_state = (\S+)$/)           { $state    = $1; }
-   if ( (/^Job Id: / or eof) and $state eq "R"){
+   next if (/^Job ID/);
+   next if (/^\s+Req'd/);
+   next if (/^---/);
+   s/[\n\r]+$//;
+   my ($id, $user, $queue, $job_name, $session_id, $nodecount, $tasks, $mem, $time_requested, $state, $time_elapsed, $hostlist) = split /\s+/, $_, -1;
+   if ($hostlist){
       $user = $user eq $ENV{USER} ? "\e[0;46m${user}\e[0m" : $user;
       my @asHostList = split /\+/, $hostlist;
       foreach my $host (@asHostList){
          $host =~ s/\/\d+$//;
          $hNodeUsers{$host}{$user}++;
       }
-      ($user, $hostlist, $state) = ("","","");
    }
 }
 close QSTAT;
