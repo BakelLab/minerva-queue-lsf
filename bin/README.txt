@@ -25,8 +25,8 @@ submitjob
 
 jobstatus  
   Summary representation of all queued and running jobs. Your jobs will
-  always be listed at the top. Type 'jobstatus -p' to instead get a 
-  summary of CPUs in use.
+  always be listed at the top. Type 'jobstatus -p' or 'jobstatus -g' to 
+  instead get a summary of CPUs or GPUs, respectively.
   
 nodestatus
   Summary representation of node usage. Useful for tailoring jobs to fit 
