@@ -15,12 +15,12 @@ $ENV{SERVER_LOGS} ||= '/var/lib/torque/server_logs/';
 # ARGUMENTS
 my $sHelp         = 0;
 my $nFileCount    = 0;
-my $nHistoryDepth = 2;
+my $sPrefix       = '';
 my $flVerbose     = 0;
 my $flRemove      = 0;
 GetOptions("help!"  => \$sHelp,
            "n:i"    => \$nFileCount,
-           "t:i"    => \$nHistoryDepth,
+           "p:s"    => \$sPrefix,
            "v!"     => \$flVerbose,
            "r!"     => \$flRemove);
            
@@ -35,10 +35,10 @@ if ($sHelp) {
     all jobs in a large job submission finished successfully.
     
     Options:
+    -p <string>
+      Show exit status of jobs whose output file name starts with a specified prefix
     -n <integer>
-      Show exit status of the last n jobs, instead of the most recent job
-    -t <integer>
-      Number of days to look back into the server log files. Default: $nHistoryDepth
+      Show exit status of the n most recently finished jobs (can be used in combination with -p)
     -v
       Show output for failed jobs
     -r
@@ -58,10 +58,19 @@ HELP
 # Fail gracefully if the log folders don't exist
 die "Error: The job output folder does not exist\n" unless (-d $ENV{PBS_OUTPUT});
 
-# Sort the output files by job ID or modification date
+# Sort the output files by modification date
 opendir my($dir), $ENV{PBS_OUTPUT} or die "Can't open $ENV{PBS_OUTPUT} : $!\n";
 my @asFiles = grep { -f "$ENV{PBS_OUTPUT}/$_" } readdir $dir;
 @asFiles = sort { eval('-M "$ENV{PBS_OUTPUT}/$a" <=> -M "$ENV{PBS_OUTPUT}/$b"') } @asFiles;
+
+# Filter on prefix
+if ($sPrefix) {
+   my @asTmpFiles;
+   foreach my $sFile (@asFiles){
+      push @asTmpFiles, $sFile if ($sFile =~ /$sPrefix/);
+   }
+   @asFiles = @asTmpFiles;
+}
 
 # Set the number of files to check
 if ($nFileCount){
@@ -104,10 +113,10 @@ if (@asErrors and @asMissing){
    my $nOKcount = $nFileCount - @asMissing - @asErrors;
    if ($nOKcount){
       if ($nOKcount > 1){
-         print "$nOKcount other jobs exited normally\n\n";
+         print "$nOKcount other jobs exited normally ($nFileCount job output files examined).\n\n";
       }
       else{
-         print "$nOKcount other job exited normally\n\n";
+         print "$nOKcount other job exited normally ($nFileCount job output files examined).\n\n";
       }
    }
 }
@@ -116,10 +125,10 @@ elsif (@asErrors){
    my $nOKcount = $nFileCount - @asErrors;
    if ($nOKcount){
       if ($nOKcount > 1){
-         print "$nOKcount other jobs exited normally\n\n";
+         print "$nOKcount other jobs exited normally ($nFileCount job output files examined).\n\n";
       }
       else{
-         print "$nOKcount other job exited normally\n\n";
+         print "$nOKcount other job exited normally ($nFileCount job output files examined).\n\n";
       }
    }
 }
@@ -128,14 +137,14 @@ elsif (@asMissing){
 }
 else{
    if ($nFileCount == scalar(@asFiles)){
-      print "All jobs with output in $ENV{HOME}/pbs-output exited normally\n\n";
+      print "All jobs with output in $ENV{HOME}/pbs-output exited normally ($nFileCount job output files examined)\n\n";
    }
    else{
       if ($nFileCount == 1){
-         print "The last job with output in $ENV{HOME}/pbs-output exited normally\n\n";
+         print "The last job with output in $ENV{HOME}/pbs-output exited normally ($nFileCount job output files examined)\n\n";
       }
       else{
-         print "The last $nFileCount jobs with output in $ENV{HOME}/pbs-output exited normally\n\n";
+         print "The last $nFileCount jobs with output in $ENV{HOME}/pbs-output exited normally ($nFileCount job output files examined)\n\n";
       }
    }
 }
