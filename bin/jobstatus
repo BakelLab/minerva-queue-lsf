@@ -11,7 +11,9 @@ use Env '@PATH';
 
 # GLOBAL
 $ENV{QSTAT} ||= "qstat";
-$ENV{SHOWQ} ||= "/opt/moab/bin/showq";
+my @asStatusCodes = ('R','Q','H','T','W','S','E','C');
+my %hStatusCodes  = ('R'=>'Running','Q'=>'Queued','H'=>'Held','T'=>'Moving',
+                     'W'=>'Waiting','S'=>'Suspend','E'=>'Exiting','C'=>'Complete');
 
 # GET PARAMETERS
 my $flHelp       = 0;
@@ -51,7 +53,7 @@ HELP
 
 # Check whether the qstat binary exist in path
 my $flQstatExists = grep -x "$_/$ENV{QSTAT}", @PATH;
-die "Error: qstat is not installed on this computer\n" unless($flQstatExists);
+die "Error: qstat is not installed on this system\n" unless($flQstatExists);
 
 # Collect job or CPU count stats
 my %hUserStats;
@@ -110,7 +112,7 @@ if ($flPUinfo){
             $nFailedCpuStats++;
          }
          
-         # Collect all requested processing unit counts (gpus and cpus)
+         # Collect all requested processing unit counts (gpus and/or cpus)
          my $nTotPUs = 0;
          $nTotPUs += $rescpus if ($flProcInfo);
          $nTotPUs += $resgpus if ($flGpuInfo);
@@ -143,11 +145,20 @@ else{
    close QSTAT;
 }
 
-my @asJobStatus = ('R','Q','H','E','C');
-print "=========================================================================\n";
-print sprintf("%-12s %-14s %-8s %-8s %-8s %-8s %-8s", 'User','Queue','Running','Queued','Held','Exiting','Completed'), "\n";
-print "-------------------------------------------------------------------------\n";
+# Figure out which columns should be displayed
+my @asJobStatus;
+foreach my $sStatus (@asStatusCodes){
+   push @asJobStatus, $sStatus if (exists $hTotalStats{$sStatus});
+}
 
+# Print header
+my $sHeader = sprintf("%-12s %-14s", 'User', 'Queue');
+foreach my $sStatus (@asJobStatus){
+   $sHeader .= sprintf(" %-8s", $hStatusCodes{$sStatus});
+}
+print '=' x length($sHeader) . "\n$sHeader\n" . '-' x length($sHeader) . "\n";
+
+# Print user stats
 foreach my $user (sort(keys(%hUserStats))) {
    foreach my $queue (sort(keys(%{$hUserStats{$user}}))) {
       if ($user =~ /^\*/){
@@ -170,7 +181,8 @@ foreach my $user (sort(keys(%hUserStats))) {
    }
 }
 
-print "-------------------------------------------------------------------------\n";
+# Print queue stats
+print '-' x length($sHeader) . "\n";
 foreach my $queue (sort(keys(%hQueueStats))) {
    print sprintf("%-12s %-14s", '', $queue);
    foreach my $status (@asJobStatus){
@@ -184,7 +196,8 @@ foreach my $queue (sort(keys(%hQueueStats))) {
    print "\n";
 }
 
-print "             ------------------------------------------------------------\n";
+# Print totals
+print " " x 13 . "-" x (length($sHeader)-13) . "\n";
 print sprintf("%-12s %-14s", '', 'totals');
 foreach my $status (@asJobStatus){
    if (exists($hTotalStats{$status})){

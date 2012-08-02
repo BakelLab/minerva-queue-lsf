@@ -7,7 +7,6 @@
 $ENV{PBSNODES} ||= 'pbsnodes';           # Torque pbsnodes command
 $ENV{DIAGNOSE} ||= '';                   # Moab/Maui diagnose command (leave empty if unavailable)
 $ENV{QSTAT}    ||= '/usr/bin/qstat';     # Torque qstat command
-$ENV{SHOWQ}    ||= 'showq';              # Moab showq command
 
 # MODULES
 use strict;
