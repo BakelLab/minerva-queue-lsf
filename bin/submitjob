@@ -135,7 +135,7 @@ unless ($sQueue){
       $sQueue ="serial";
        }
    }
-   elsif ($nCpus >1 and $nCpus < 64){
+   elsif ($nCpus >1 and $nCpus < 32){
       $nCpus = 4 if $nCpus <4;
       if ($nReqTime <= 24){
          $sQueue = "small";
@@ -144,7 +144,7 @@ unless ($sQueue){
          $sQueue = "small-long";
       }
    }
-   elsif ($nCpus >=64 and $nCpus < 2048){
+   elsif ($nCpus >=32 and $nCpus < 2048){
       if ($nReqTime > 24){
          $sQueue = "medium-long";
       }
