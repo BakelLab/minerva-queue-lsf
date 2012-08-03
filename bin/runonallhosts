@@ -1,6 +1,0 @@
-#!/bin/sh
-
-for i in `nodestatus | awk '$1!~/^(=|-|\||Node)/ && $2!="down"{print $1}' | xargs`
-do
-   ssh ${i} "hostname; $*";
-done

@@ -72,3 +72,7 @@ cache-qstat
   Admin script to wrap and add caching functionality to the default
   qstat command. Can be used to prevent clients from flooding the torque
   server with requests.
+
+runonallnodes
+  Admin script to run a command on all cluster nodes. Useful to get an
+  overview of disk stats etc. Example: runonallnodes 'df -h | grep sda3'
