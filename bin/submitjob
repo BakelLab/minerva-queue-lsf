@@ -4,15 +4,16 @@
 # Harm van Bakel <hvbakel@gmail.com>
 
 # GLOBALS
-$ENV{PBS_OUTPUT}         ||= "$ENV{HOME}/pbs-output";  # Folder with pbs output files
-$ENV{SUBMITJOB_CPUS}     ||= 1;                        # Default number of CPUs per node
-$ENV{SUBMITJOB_MEM}      ||= 3.8;                      # Default memory allocation in Gb
-$ENV{SUBMITJOB_WALLTIME} ||= 24;                       # Default walltime in hours
-$ENV{SUBMITJOB_NODES}    ||= 1;                        # Default number of nodes
-$ENV{MAX_CPUS_PER_NODE}  ||= 64;                       # Maximum number of CPUs on a single node
-$ENV{MAX_NODES}          ||= 123;                      # Maximum number of nodes in the cluster
-$ENV{TEMPDIR}            ||= '/tmp';                   # Location for tmp file storage
-$ENV{QSUB}               ||= 'qsub';                   # Location of qsub binary
+$ENV{PBS_OUTPUT}         ||= "$ENV{HOME}/pbs-output";   # Folder with pbs output files
+$ENV{SUBMITJOB_CPUS}     ||= 1;                         # Default number of CPUs per node
+$ENV{SUBMITJOB_MEM}      ||= 3.8;                       # Default memory allocation in Gb
+$ENV{SUBMITJOB_WALLTIME} ||= 24;                        # Default walltime in hours
+$ENV{SUBMITJOB_NODES}    ||= 1;                         # Default number of nodes
+$ENV{MAX_CPUS_PER_NODE}  ||= 64;                        # Maximum number of CPUs on a single node
+$ENV{MAX_NODES}          ||= 123;                       # Maximum number of nodes in the cluster
+$ENV{QSUB}               ||= 'qsub';                    # Location of qsub binary
+$ENV{TMPDIR}             ||= "/scratch/$ENV{USER}/tmp"; # Location for tmp file storage
+$ENV{TMP}                ||= $ENV{TMPDIR};              # Location for tmp file storage
 $SIG{'INT'}=$SIG{'HUP'}=$SIG{'ABRT'}=$SIG{'QUIT'}=$SIG{'TRAP'}=$SIG{'STOP'}=\&INTERRUPT;
 
 # MODULES
@@ -30,7 +31,7 @@ if (@ARGV<1) {
     my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
     die <<HELP
 
-    Usage: $sScriptName [walltime] [-mpcnWqs] <command>
+    Usage: $sScriptName [walltime] [-mpcnWqsk] <command>
     
       walltime   
          The expected run time of the job, measured in hours. Default: $ENV{SUBMITJOB_WALLTIME}
@@ -48,6 +49,8 @@ if (@ARGV<1) {
          Target queue
       -s -sem --sem
          Optional name of a file to append job IDs to
+      -k -checkpoint --checkpoint
+         Allow the job to be checkpointed
 
       command
          The command to run on the cluster. Note that any output redirection 
@@ -58,6 +61,10 @@ if (@ARGV<1) {
     
 HELP
 }
+
+# Set up job output and TMP directories
+unless (-e $ENV{PBS_OUTPUT}) { mkdir($ENV{PBS_OUTPUT}) or die "Could not create '$ENV{PBS_OUTPUT}' for pbs job output: $!\n"};
+unless (-e $ENV{TMPDIR})     { mkdir($ENV{TMPDIR})     or die "Could not create '$ENV{TMPDIR}' for pbs job output: $!\n"};
 
 # Copy default settings
 my $nMem          = $ENV{SUBMITJOB_MEM};
@@ -73,6 +80,7 @@ my $sSemaphore     = "";
 my $sAddAtrib      = "";
 my $sQueue         = "";
 my $flDebug        = 0;
+my $flCheckpoint   = 0;
 while($flCheckForArgs){
    if ($ARGV[0] =~ /^(\d+)\.*\d*$/){              # CPU time
       $nReqTime = shift @ARGV;
@@ -120,12 +128,16 @@ while($flCheckForArgs){
        shift @ARGV;
        $sQueue = shift @ARGV;
    }
+   elsif($ARGV[0] =~ /(^-k)|(^--checkpoint)|(^-checkpoint)/){
+       shift @ARGV;
+       $flCheckpoint = 1;
+   }
    else{
       $flCheckForArgs = 0;
    }
 }
 
-# Route jobs to first queue that fits if no queue was specified
+# Route jobs if no queue was specified
 unless ($sQueue){
    if ($nCpus == 1){
        if ($nReqTime > 24){
@@ -181,18 +193,17 @@ for (my $i=0 ; $i<@ARGV ; $i++ ){
    }
 }
 
-# Check if the pbs output dir exists in home dir of the user. Create it if it doesn't
-unless (-e $ENV{PBS_OUTPUT}) { mkdir($ENV{PBS_OUTPUT}) or die "Could not create '$ENV{PBS_OUTPUT}' for pbs job output: $!\n"};
-
 # Format the job name to be the name of the command that is executed
 my $sCwd     =  getcwd;
 my @asPath   =  split(/\//, $sCwd);
 my $sExecDir =  pop @asPath;
 my $sJobName =  $ARGV[0];
-$sJobName    =~ s/ .*$//; # Remove anything following a space (can be introduced during smart quoting)
+$sJobName    =~ s/^ +//;  # Remove leading spaces
+$sJobName    =~ s/ .*$//; # Remove anything following a space
 $sJobName    =~ s/.*\///; # Remove the path before any command
 $sJobName    =~ s/\&//;   # Remove any ampersands
 $sJobName    =~ s/^\d+//; # Remove any leading digits, otherwise qsub will throw an error
+$sJobName    =  substr($sJobName,0,14); # Make sure job name does not exceed max length
 
 # Set the job resource list
 my @asResources;
@@ -211,11 +222,11 @@ else{
 my $sResources = join(',', @asResources);
 
 # Add any additional attributes
-my $sPbsAttrib = $sAddAtrib ? "#PBS -W $sAddAtrib" : "";
-my $sPbsQueue  = $sQueue    ? "#PBS -q $sQueue"  : "";
+my $sPbsAttrib = $sAddAtrib ? "\n#PBS -W $sAddAtrib" : "";
+my $sPbsQueue  = $sQueue    ? "\n#PBS -q $sQueue"  : "";
 
 # Write the job script to a temporary file
-my $sJobCmd  = join(' ', @ARGV);
+my $sJobCmd  = $flCheckpoint ? join(' ', 'cr_run', @ARGV) : join(' ', @ARGV);
 my $sJobFmt  = $sJobCmd;
 $sJobFmt     =~ s/\$/\\\$/g;  # Escape $, otherwise literal variables will be subsituted during 'echo'
 $sJobFmt     =~ s/\"/\\\"/g;  # Escape ", otherwise they will be lost during 'echo'
@@ -230,11 +241,8 @@ print $fhTmpOut <<SUBMIT;
 #PBS -m a
 #PBS -r n
 #PBS -V
-#PBS -N $sJobName
-$sPbsAttrib
-$sPbsQueue
+#PBS -N $sJobName$sPbsAttrib$sPbsQueue
 cd $sCwd
-export PATH="\$PATH:/opt/sw/bin"
 export PBS_NCPU=$nCpus
 echo -E '==> Run command    :' "$sJobFmt"
 echo    '==> Execution host :' `hostname`
