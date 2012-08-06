@@ -60,7 +60,7 @@ my %hUserStats;
 my %hQueueStats;
 my %hTotalStats;
 my $flPUinfo = $flProcInfo + $flGpuInfo;
-my $nFailedCpuStats = 0;
+my @asFailedCpuStats;
 my $sQueueCmd = $sServer ? join('', $ENV{QSTAT}, ' @',$sServer) : $ENV{QSTAT};
 if ($flPUinfo){
    my ($user,$queue,$status,$hostlist,$reslist,$ncpus) = ("","","","","","");
@@ -109,7 +109,7 @@ if ($flPUinfo){
          
          # Check if we have collected any CPU or GPU info at this stage
          if ($rescpus==0 and $resgpus==0){
-            $nFailedCpuStats++;
+            push @asFailedCpuStats, "   $user   $status   $queue   $hostlist   $reslist   $ncpus";
          }
          
          # Collect all requested processing unit counts (gpus and/or cpus)
@@ -210,4 +210,15 @@ foreach my $status (@asJobStatus){
 print "\n";
 
 # Make sure we warn in case of issues with CPU counts
-warn("Warning: could not determine accurate CPU or GPU counts for $nFailedCpuStats jobs\n") if ($nFailedCpuStats);
+if (@asFailedCpuStats){
+   my $nFailedCpuStats = scalar(@asFailedCpuStats);
+   if ($nFailedCpuStats == 1){
+      warn("Warning: could not determine accurate CPU or GPU counts for 1 job:\n")
+   }
+   else{
+      warn("Warning: could not determine accurate CPU or GPU counts for $nFailedCpuStats jobs:\n")
+   }
+   foreach my $sFailedCpuStats (@asFailedCpuStats){
+      warn("$sFailedCpuStats\n");
+   }
+}
