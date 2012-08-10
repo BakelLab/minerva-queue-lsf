@@ -21,26 +21,27 @@ my $flProcInfo   = 0;
 my $flGpuInfo    = 0;
 my $sServer      = "";
 GetOptions("help!"      => \$flHelp,
-           "procinfo!"  => \$flProcInfo,
-           "server:s"   => \$sServer,
-           "gpuinfo!"   => \$flGpuInfo);
+           "cpuinfo!"   => \$flProcInfo,
+           "gpuinfo!"   => \$flGpuInfo,
+           "server:s"   => \$sServer);
 
 # PRINT HELP
 if ($flHelp) {
    my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
    die <<HELP
 
-   Usage: $sScriptName [options]
+   Usage: $sScriptName [-scgh]
 
    Gives a brief summary of all running and queued jobs.
-    
+   
+   Options: 
     -s -server <string>
       Show queue information for a different server
-    -p -procinfo
+    -c -cpuinfo
       Show processors in use rather than jobs
     -g -gpuinfo
       Show GPUs in use rather than jobs
-    -help
+    -h -help
       This help message
    
 HELP

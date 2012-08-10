@@ -28,36 +28,37 @@ use File::Temp qw(tempfile tempdir);
 
 # Print help message if called without arguments
 if (@ARGV<1) {
-    my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
-    die <<HELP
+   my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
+   die <<HELP
 
-    Usage: $sScriptName [walltime] [-mpcnWqsk] <command>
-    
-      walltime   
-         The expected run time of the job, measured in hours. Default: $ENV{SUBMITJOB_WALLTIME}
-      -m -mem --mem
-         The maximum amount of memory used by the job in Gb.  Default: $ENV{SUBMITJOB_MEM} 
-      -p -property --property
-         Optionally request specific node properties.
-      -c -cpu --cpu
-         The number of CPUs required per node. Default: $ENV{SUBMITJOB_CPUS}
-      -n -nodes --nodes
-         The number of nodes required. Default: $ENV{SUBMITJOB_NODES}
-      -W -additional --additional
-         Additional attributes
-      -q -queue --queue
-         Target queue
-      -s -sem --sem
-         Optional name of a file to append job IDs to
-      -k -checkpoint --checkpoint
-         Allow the job to be checkpointed
+   Usage: $sScriptName [walltime] [-mpcnWqsk] <command>
+   
+   Options: 
+    walltime <integer>
+       The expected run time of the job, measured in hours. Default: $ENV{SUBMITJOB_WALLTIME}
+    -m -mem <integer>
+       The maximum amount of memory used by the job in Gb.  Default: $ENV{SUBMITJOB_MEM} 
+    -p -property <string>
+       Optionally request specific node properties.
+    -c -cpu <integer>
+       The number of CPUs required per node. Default: $ENV{SUBMITJOB_CPUS}
+    -n -nodes <integer>
+       The number of nodes required. Default: $ENV{SUBMITJOB_NODES}
+    -W -additional <string>
+       Additional attributes
+    -q -queue <string>
+       Target queue
+    -s -sem <string>
+       Optional name of a file to append job IDs to
+    -k -checkpoint
+       Allow the job to be checkpointed
 
-      command
-         The command to run on the cluster. Note that any output redirection 
-         or pipe symbols must be escaped, i.e. \\> or \\|
+    command
+       The command to run on the cluster. Note that any output redirection 
+       or pipe symbols must be escaped, i.e. \\> or \\|
 
-    Job STDERR will be merged with STDOUT and redirected to $ENV{PBS_OUTPUT}
-    Any job exceeding the run time and memory limits will be killed automatically.
+   Job STDERR will be merged with STDOUT and redirected to $ENV{PBS_OUTPUT}
+   Any job exceeding the run time and memory limits will be killed automatically.
     
 HELP
 }

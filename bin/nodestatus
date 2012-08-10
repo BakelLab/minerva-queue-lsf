@@ -25,7 +25,8 @@ if ($sHelp) {
    Usage: $sScriptName
 
    Displays a graphical summary of node occupancy.
-    
+   
+   Options: 
     -help
       This help message
    

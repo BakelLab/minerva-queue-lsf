@@ -18,33 +18,32 @@ my $nFileCount    = 0;
 my $sPrefix       = '';
 my $flVerbose     = 0;
 my $flRemove      = 0;
-GetOptions("help!"  => \$sHelp,
-           "n:i"    => \$nFileCount,
-           "p:s"    => \$sPrefix,
-           "v!"     => \$flVerbose,
-           "r!"     => \$flRemove);
+GetOptions("help!"     => \$sHelp,
+           "number:i"  => \$nFileCount,
+           "prefix:s"  => \$sPrefix,
+           "verbose!"  => \$flVerbose,
+           "remove!"   => \$flRemove);
            
 # PRINT HELP
 my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
 if ($sHelp) {
-    die <<HELP
+   die <<HELP
 
-    $sScriptName [ -n | -i ]
+   $sScriptName [-pnvr]
 
-    Check the exit status of recently finished jobs. Can be used to make sure that
-    all jobs in a large job submission finished successfully.
+   Check the exit status of recently finished jobs. Can be used to make sure that
+   all jobs in a large job submission finished successfully.
     
-    Options:
-    -p <string>
+   Options:
+    -p -prefix <string>
       Show exit status of jobs whose output file name starts with a specified prefix
-    -n <integer>
+    -n -number <integer>
       Show exit status of the n most recently finished jobs (can be used in combination with -p)
-    -v
+    -v -verbose
       Show output for failed jobs
-    -r
+    -r -remove
       Remove the output for failed or missing jobs
-    
-    -help
+    -h -help
       This help message
       
 HELP
