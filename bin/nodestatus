@@ -96,7 +96,8 @@ while (<QSTAT>){
    next if (/^---/);
    s/[\n\r]+$//;
    my ($id, $user, $queue, $job_name, $session_id, $nodecount, $tasks, $mem, $time_requested, $state, $time_elapsed, $hostlist) = split /\s+/, $_, -1;
-   if ($hostlist and ($state eq "R" or $state eq "E") ){
+   $hostlist ||= "--";
+   if ( ($hostlist ne "--") and ($state eq "R" or $state eq "E" or $state eq "Q") ){
       $user = $user eq $ENV{USER} ? "\e[0;46m${user}\e[0m" : $user;
       my @asHostList = split /\+/, $hostlist;
       foreach my $host (@asHostList){

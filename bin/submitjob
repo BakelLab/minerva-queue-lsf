@@ -141,29 +141,14 @@ while($flCheckForArgs){
 # Route jobs if no queue was specified
 unless ($sQueue){
    if ($nCpus == 1){
-       if ($nReqTime > 24){
-      $sQueue ="serial-long";
-       }
-       else{
       $sQueue ="serial";
-       }
    }
    elsif ($nCpus >1 and $nCpus < 32){
       $nCpus = 4 if $nCpus <4;
-      if ($nReqTime <= 24){
-         $sQueue = "small";
-      }
-      else{
-         $sQueue = "small-long";
-      }
+      $sQueue = "small";
    }
    elsif ($nCpus >=32 and $nCpus < 2048){
-      if ($nReqTime > 24){
-         $sQueue = "medium-long";
-      }
-      else{
-         $sQueue = "medium";
-      }
+      $sQueue = "medium";
    }
    elsif ($nCpus >=2048){
       $sQueue = "large";
