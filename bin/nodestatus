@@ -59,7 +59,7 @@ while (<IN>){
    }
    if (/^\s+properties =/){
       my $sProperties = (split /=\s*/)[1];
-      $sProperties =~ s/minerva,compute,//;
+      $sProperties =~ s/(minerva|lapis),compute,//;
       $hNodes{$sCurrentNode}{properties} = $sProperties;
       $hFsize{properties} = length($sProperties) if(length($sProperties) > $hFsize{properties});
    }
