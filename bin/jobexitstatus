@@ -136,14 +136,14 @@ else{
    }
    else{
       if ($nFileCount == scalar($nTotalJobOutputFiles)){
-         print "\nAll $nFileCount jobs with output in $ENV{HOME}/pbs-output exited normally\n\n";
+         print "\nAll $nFileCount jobs with output in $ENV{PBS_OUTPUT} exited normally\n\n";
       }
       else{
          if ($nFileCount == 1){
-            print "\nThe last job with output in $ENV{HOME}/pbs-output exited normally\n\n";
+            print "\nThe last job with output in $ENV{PBS_OUTPUT} exited normally\n\n";
          }
          else{
-            print "\nThe last $nFileCount jobs with output in $ENV{HOME}/pbs-output exited normally\n\n";
+            print "\nThe last $nFileCount jobs with output in $ENV{PBS_OUTPUT} exited normally\n\n";
          }
       }
    }
