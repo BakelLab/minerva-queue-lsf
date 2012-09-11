@@ -10,7 +10,6 @@ use Getopt::Long;
 
 # GLOBALS
 $ENV{PBS_OUTPUT}  ||= "$ENV{HOME}/pbs-output";    # Folder with pbs output files
-$ENV{SERVER_LOGS} ||= '/var/lib/torque/server_logs/';
 
 # ARGUMENTS
 my $sHelp         = 0;
@@ -61,7 +60,6 @@ die "Error: The job output folder does not exist\n" unless (-d $ENV{PBS_OUTPUT})
 opendir my($dir), $ENV{PBS_OUTPUT} or die "Can't open $ENV{PBS_OUTPUT} : $!\n";
 my @asFiles              = grep { -f "$ENV{PBS_OUTPUT}/$_" } readdir $dir;
 my $nTotalJobOutputFiles = scalar(@asFiles);
-@asFiles                 = sort { eval('-M "$ENV{PBS_OUTPUT}/$a" <=> -M "$ENV{PBS_OUTPUT}/$b"') } @asFiles;
 
 # Filter on prefix
 if ($sPrefix) {
@@ -74,6 +72,7 @@ if ($sPrefix) {
 
 # Set the number of files to check
 if ($nFileCount){
+   @asFiles    = sort { eval('-M "$ENV{PBS_OUTPUT}/$a" <=> -M "$ENV{PBS_OUTPUT}/$b"') } @asFiles;
    $nFileCount = scalar(@asFiles) if (scalar(@asFiles)<$nFileCount);
 }
 else{
@@ -90,28 +89,16 @@ if($nFileCount == 0){
    }
 }
 
-# Parse files for exit status info
-my %hExitStatus;
+# Process exit status
 my @asErrors;
 my @asMissing;
+my $rhExitStatus = parse_exitstatus($ENV{PBS_OUTPUT});
 for (my $i=$nFileCount-1; $i>=0; $i--){
-   my $nExitStatus = "NA";
-   open JOB, "tail $ENV{PBS_OUTPUT}/$asFiles[$i]|" or die "Error: can't open '$ENV{PBS_OUTPUT}/$asFiles[$i]'\n";
-   while (<JOB>){
-      $nExitStatus = $1 if(/\=\=\> Exit status    \: (.*)$/);
-   }
-   close JOB;
-   
-   # Check exit status
-   if ($nExitStatus eq 'NA'){
-      push @asMissing, $asFiles[$i];
-   }
-   elsif ($nExitStatus =~ /^0 /){
-      next;
+   if (exists $rhExitStatus->{$asFiles[$i]} ){
+      push @asErrors, $asFiles[$i] unless($rhExitStatus->{$asFiles[$i]} =~ /^0 /);
    }
    else{
-      push @asErrors, $asFiles[$i];
-      $hExitStatus{$asFiles[$i]} = $nExitStatus;
+      push @asMissing, $asFiles[$i];
    }
 }
 
@@ -133,12 +120,12 @@ else{
    # Print the result
    if (@asErrors and @asMissing){
       print_missing(@asMissing);
-      print_errors(\@asErrors, \%hExitStatus, $flVerbose);
+      print_errors(\@asErrors, $rhExitStatus, $flVerbose);
       my $nOKcount = $nFileCount - @asMissing - @asErrors;
       print other_job_stats($nOKcount, $nFileCount);
    }
    elsif (@asErrors){
-      print_errors(\@asErrors, \%hExitStatus, $flVerbose);
+      print_errors(\@asErrors, $rhExitStatus, $flVerbose);
       my $nOKcount = $nFileCount - @asErrors;
       print other_job_stats($nOKcount, $nFileCount);
    }
@@ -167,15 +154,26 @@ else{
 ## SUBROUTINES ##
 #################
 
-# other_job_stats
+# parse_exitstatus
 #
-# other_job_stats
-sub other_job_stats {
-   my ($nOKcount, $nFileCount) = @_;
-   my $sMessage = $nOKcount==1 ? "$nOKcount other job" : "$nOKcount other jobs";
-   return "\n$sMessage exited normally ($nFileCount job output files examined).\n\n";
+# Grab exit status of all jobs in pbs output folder
+sub parse_exitstatus {
+   my ($sFolder) = @_;
+   my %hExitStatus;
+   my ($sFileName, $sStatus) = ("","");
+   open JOB, "tail -v -c 100 $sFolder/* |" or die "Error: can't parse exit status: $!'\n";
+   while (<JOB>){
+      next if /^\s*$/;
+      $sFileName   = $1 if (/\=\=\> (.*) \<\=\=/);
+      $sFileName   =~ s/$sFolder\/*//;
+      if (/\=\=\> Exit status    \: (.*)$/){
+         $hExitStatus{$sFileName} = $1 if ($sFileName);
+         $sFileName = "";
+      }
+   }
+   close JOB;
+   return \%hExitStatus;
 }
-
 
 # print_missing
 #
@@ -204,7 +202,6 @@ sub print_missing {
 
 }
 
-
 # print_errors
 #
 # Print jobs that exited with an error
@@ -229,4 +226,14 @@ sub print_errors {
          print "  $sRelPath/$sJobFile ==> $rhExitStatus->{$sJobFile}\n";
       }
    }
+}
+
+# other_job_stats
+#
+# other_job_stats
+sub other_job_stats {
+   my ($nOKcount, $nFileCount) = @_;
+   my $sOKmessage = $nOKcount==1   ? "job" : "jobs";
+   my $sEXmessage = $nFileCount==1 ? "file" : "files";
+   return "\n$nOKcount other $sOKmessage exited normally ($nFileCount job output $sEXmessage examined).\n\n";
 }
