@@ -58,7 +58,8 @@ die "Error: The job output folder does not exist\n" unless (-d $ENV{PBS_OUTPUT})
 
 # Sort the output files by modification date
 opendir my($dir), $ENV{PBS_OUTPUT} or die "Can't open $ENV{PBS_OUTPUT} : $!\n";
-my @asFiles              = grep { -f "$ENV{PBS_OUTPUT}/$_" } readdir $dir;
+my @asFiles = grep { -f "$ENV{PBS_OUTPUT}/$_" } readdir $dir;
+@asFiles    = sort { eval('-M "$ENV{PBS_OUTPUT}/$a" <=> -M "$ENV{PBS_OUTPUT}/$b"') } @asFiles;
 my $nTotalJobOutputFiles = scalar(@asFiles);
 
 # Filter on prefix
@@ -72,7 +73,6 @@ if ($sPrefix) {
 
 # Set the number of files to check
 if ($nFileCount){
-   @asFiles    = sort { eval('-M "$ENV{PBS_OUTPUT}/$a" <=> -M "$ENV{PBS_OUTPUT}/$b"') } @asFiles;
    $nFileCount = scalar(@asFiles) if (scalar(@asFiles)<$nFileCount);
 }
 else{
@@ -119,20 +119,20 @@ if ($flRemove){
 else{
    # Print the result
    if (@asErrors and @asMissing){
+      my $nOKcount = $nFileCount - @asMissing - @asErrors;
       print_missing(@asMissing);
       print_errors(\@asErrors, $rhExitStatus, $flVerbose);
-      my $nOKcount = $nFileCount - @asMissing - @asErrors;
-      print other_job_stats($nOKcount, $nFileCount);
+      print_other_job_stats($nOKcount, $nFileCount);
    }
    elsif (@asErrors){
-      print_errors(\@asErrors, $rhExitStatus, $flVerbose);
       my $nOKcount = $nFileCount - @asErrors;
-      print other_job_stats($nOKcount, $nFileCount);
+      print_errors(\@asErrors, $rhExitStatus, $flVerbose);
+      print_other_job_stats($nOKcount, $nFileCount);
    }
    elsif (@asMissing){
-      print_missing(@asMissing);
       my $nOKcount = $nFileCount - @asMissing;
-      print other_job_stats($nOKcount, $nFileCount);
+      print_missing(@asMissing);
+      print_other_job_stats($nOKcount, $nFileCount);
    }
    else{
       if ($nFileCount == scalar($nTotalJobOutputFiles)){
@@ -228,12 +228,12 @@ sub print_errors {
    }
 }
 
-# other_job_stats
+# print_other_job_stats
 #
-# other_job_stats
-sub other_job_stats {
+# print_other_job_stats
+sub print_other_job_stats {
    my ($nOKcount, $nFileCount) = @_;
    my $sOKmessage = $nOKcount==1   ? "job" : "jobs";
    my $sEXmessage = $nFileCount==1 ? "file" : "files";
-   return "\n$nOKcount other $sOKmessage exited normally ($nFileCount job output $sEXmessage examined).\n\n";
+   print "\n$nOKcount other $sOKmessage exited normally ($nFileCount job output $sEXmessage examined).\n\n";
 }
