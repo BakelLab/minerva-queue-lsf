@@ -12,7 +12,7 @@ $ENV{SUBMITJOB_NODES}    ||= 1;                         # Default number of node
 $ENV{MAX_CPUS_PER_NODE}  ||= 64;                        # Maximum number of CPUs on a single node
 $ENV{MAX_NODES}          ||= 123;                       # Maximum number of nodes in the cluster
 $ENV{QSUB}               ||= 'qsub';                    # Location of qsub binary
-$ENV{TMPDIR}             ||= "/scratch/$ENV{USER}/tmp"; # Location for tmp file storage
+$ENV{TMPDIR}             ||= "/dev/shm";                # Location for tmp file storage
 $ENV{TMP}                ||= $ENV{TMPDIR};              # Location for tmp file storage
 $SIG{'INT'}=$SIG{'HUP'}=$SIG{'ABRT'}=$SIG{'QUIT'}=$SIG{'TRAP'}=$SIG{'STOP'}=\&INTERRUPT;
 
