@@ -41,9 +41,11 @@ lastjoboutput
   that your job output is in ~/pbs-output (the submitjob default), or
   any other dir specified in the PBS_OUTPUT environment variable.
 
-deleteallmyjobs
-  Does exactly that. Great way to quickly terminate a job submission 
-  gone wrong. It will ask for confirmation before it does anything.
+deletejobs
+  Delete your running and/or queued jobs based on a set of criteria such
+  as job name, state, queue, and job identifier range. Use multiple
+  options together to narrow down your selection. The script will ask for 
+  confirmation before it does anything.
 
 torque.epilogue.sh
   Epilogue script for torque that appends a summary of resources used
