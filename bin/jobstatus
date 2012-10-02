@@ -11,6 +11,7 @@ use Env '@PATH';
 
 # GLOBAL
 $ENV{QSTAT} ||= "qstat";
+$ENV{QMGR}  ||= "qmgr";
 my @asStatusCodes = ('R','Q','H','T','W','S','E','C');
 my %hStatusCodes  = ('R'=>'Running','Q'=>'Queued','H'=>'Held','T'=>'Moving',
                      'W'=>'Waiting','S'=>'Suspend','E'=>'Exiting','C'=>'Complete');
@@ -22,6 +23,7 @@ my $flGpuInfo    = 0;
 my $sServer      = "";
 GetOptions("help!"      => \$flHelp,
            "cpuinfo!"   => \$flProcInfo,
+           "pcpuinfo!"  => \$flProcInfo,
            "gpuinfo!"   => \$flGpuInfo,
            "server:s"   => \$sServer);
 
@@ -64,7 +66,9 @@ my $flPUinfo = $flProcInfo + $flGpuInfo;
 my @asFailedCpuStats;
 my $sQueueCmd = $sServer ? join('', $ENV{QSTAT}, ' @',$sServer) : $ENV{QSTAT};
 if ($flPUinfo){
-   my ($user,$queue,$status,$hostlist,$reslist,$ncpus) = ("","","","","","");
+   my ($user,$queue,$status,$hostlist,$reslist,$ncpus,$arrayreq) = ("","","","","","","");
+   my $rhDefaultPUs = get_queue_default_pu_stats();
+   my %hRunningJobArrayPUs;
    open QSTAT, "$sQueueCmd -t -f -1 |" or die "Error: could not run 'qstat' to get job status report: $!\n";
    while (<QSTAT>){
       s/[\n\r]+$//;
@@ -73,39 +77,49 @@ if ($flPUinfo){
       if(/^\s+queue = (\S+)$/)               { $queue    = $1; }
       if(/^\s+exec_host = (.+)$/)            { $hostlist = $1; }
       if(/^\s+Resource_List.nodes = (.+)$/)  { $reslist  = $1; }
-      if(/^\s+Resource_List.ncpus = (\d+)$/)  { $ncpus    = $1; }
+      if(/^\s+Resource_List.ncpus = (\d+)$/) { $ncpus    = $1; }
+      if(/^\s+job_array_request = (.+)$/)    { $arrayreq = $1; }
       
       if ( (/^Job Id: / or eof) and $user){
          $user = "*\e[0;46m${user}\e[0m" if ($user eq $ENV{USER});
          my ($rescpus,$resgpus) = (0,0,0);
          
-         # First try to obtain the number of CPUs and GPUs from the resource list
+         # First try to obtain the number of CPUs and GPUs from the resource list, if available
          if ($reslist){
-            my @asNodeSpecs = split /\+/, $reslist;
-            foreach my $sNodeSpec (@asNodeSpecs){
-               my ($sNodeHostOrCount, @asSpecList) = split /\:/, $sNodeSpec;
-               my $nNodeCount = ($sNodeHostOrCount =~ /^\d+$/) ? $sNodeHostOrCount : 1;
-               foreach my $sSpec (@asSpecList){
-                  my ($sKey, $nValue) = split /=/, $sSpec;
-                  if (lc($sKey) eq "ppn"){
-                     $rescpus += $nNodeCount * $nValue;
-                  }
-                  if (lc($sKey) eq "gpus"){
-                     $resgpus += $nNodeCount * $nValue;
-                  }
-               }
-            }
+            ($rescpus,$resgpus) = parse_cpus_gpus_from_resource_list($reslist);
          }
          
-         # Second, try to get the number of CPUs from the host list
+         # Second, try to get the number of CPUs from the host list (for running jobs)
          if ($rescpus==0 and $hostlist){
             my @cpus = split /\+/, $hostlist;
             $rescpus = scalar(@cpus);
          }
          
-         # Third, try to parse the ncpu field if available
+         # Third, try to parse the ncpu field, if available
          if ($rescpus==0 and $ncpus){
             $rescpus = $ncpus;
+         }
+         
+         # Fourth, if we don't have any cpus or gpus at this stage we either
+         #  - try to derive the cpu count from already running jobs in the same array or
+         #  - assume the default cpu and gpu count for the queue
+         if ($rescpus==0 and $resgpus==0){
+            if (exists $hRunningJobArrayPUs{$arrayreq}){
+               $rescpus = $hRunningJobArrayPUs{$arrayreq}{cpus};
+               $resgpus = $hRunningJobArrayPUs{$arrayreq}{gpus};
+            }
+            else{
+               if (exists $rhDefaultPUs->{$queue}){
+                  $rescpus = $rhDefaultPUs->{$queue}{cpus};
+                  $resgpus = $rhDefaultPUs->{$queue}{gpus};
+               }
+            }
+         }
+         else{
+            if($arrayreq){
+               $hRunningJobArrayPUs{$arrayreq}{cpus} = $rescpus;
+               $hRunningJobArrayPUs{$arrayreq}{gpus} = $resgpus;
+            }
          }
          
          # Check if we have collected any CPU or GPU info at this stage
@@ -124,7 +138,7 @@ if ($flPUinfo){
          $hTotalStats{$status}               += $nTotPUs;
          
          # Clear variables
-         ($user,$queue,$status,$hostlist,$reslist,$ncpus) = ("","","","","","");
+         ($user,$queue,$status,$hostlist,$reslist,$ncpus,$arrayreq) = ("","","","","","","");
       }
    }
    close QSTAT;
@@ -219,7 +233,58 @@ if (@asFailedCpuStats){
    else{
       warn("Warning: could not determine accurate CPU or GPU counts for $nFailedCpuStats jobs:\n")
    }
-   foreach my $sFailedCpuStats (@asFailedCpuStats){
-      warn("$sFailedCpuStats\n");
+   my $nFailDetailCount = $nFailedCpuStats < 5 ? $nFailedCpuStats : 5;
+   for (my $i=0 ; $i<$nFailDetailCount ; $i++){
+      warn("$asFailedCpuStats[$i]\n");
    }
+   print "Further details omitted\n" if ($nFailedCpuStats > $nFailDetailCount);
+}
+
+
+###############
+# SUBROUTINES #
+###############
+
+# get_queue_default_pu_stats
+#
+# Get the default PU stats for queued jobs
+sub get_queue_default_pu_stats {
+   my %hDefaultPUs;
+   open QMGR, "$ENV{QMGR} -c 'print server' |" or die "Error: can't run qmgr: $!\n";
+   while (<QMGR>){
+      if (/resources_default.nodes/){
+         my (@asLine) = split / /;
+         my $sQueue     = $asLine[2];
+         my ($rescpus, $resgpus) = parse_cpus_gpus_from_resource_list($asLine[$#asLine]);
+         if ($rescpus or $resgpus){
+            $hDefaultPUs{$sQueue}{cpus} = $rescpus;
+            $hDefaultPUs{$sQueue}{gpus} = $resgpus;
+         }
+      }
+   }
+   close QMGR;
+   return(\%hDefaultPUs);
+}
+
+# parse_cpus_gpus_from_resource_list
+#
+# Get CPU and GPU counts from the node resource list
+sub parse_cpus_gpus_from_resource_list {
+   my ($sResourceList) = @_;
+   my ($rescpus, $resgpus) = (0,0);
+   my @asNodeSpecs = split /\+/, $sResourceList;
+   foreach my $sNodeSpec (@asNodeSpecs){
+      my ($sNodeHostOrCount, @asSpecList) = split /\:/, $sNodeSpec;
+      my $nNodeCount = ($sNodeHostOrCount =~ /^\d+$/) ? $sNodeHostOrCount : 1;
+      foreach my $sSpec (@asSpecList){
+         my ($sKey, $nValue) = split /=/, $sSpec;
+         if (lc($sKey) eq "ppn"){
+            $rescpus += $nNodeCount * $nValue;
+         }
+         if (lc($sKey) eq "gpus"){
+            $resgpus += $nNodeCount * $nValue;
+         }
+      }
+   }
+   return($rescpus, $resgpus);
 }
