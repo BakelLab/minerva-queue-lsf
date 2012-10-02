@@ -24,7 +24,8 @@ declare -A ex=( ["0"]="(Job exited normally)" \
                 ["128"]="(invalid argument to 'exit')" \
                 ["130"]="(script terminated by Ctrl+C)" \
                 ["139"]="(Segmentation fault)" \
-                ["271"]="(job terminated by user or by queuing system for exceeding resources)" )
+                ["271"]="(job terminated by user or by queuing system for exceeding resources)" \
+                ["255"]="(exit status out of range)" )
 
 echo "==> Resources used : ${7}"
 echo "==> Exit status    : ${10}" ${ex["${10}"]}
