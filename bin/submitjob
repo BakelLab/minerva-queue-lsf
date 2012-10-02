@@ -163,7 +163,7 @@ for (my $i=0 ; $i<@ARGV ; $i++ ){
       $ARGV[$i] = "\"$ARGV[$i]\"" unless ($ARGV[$i] =~ /^(\$|'|")/);  # double-quote argument unless it starts with $ (e.g. $'\t' ) or " or '
    }
    elsif ($ARGV[$i] =~ /[\${[\]!} ]/){                                # Handles awk, sed and other matlab commands
-      $ARGV[$i] = "'$ARGV[$i]'" unless ($ARGV[$i] =~ /'/);            # Single-quote unless it's already single-quoted
+      $ARGV[$i] = "'$ARGV[$i]'" unless ($ARGV[$i] =~ /'/ or $ARGV[$i] =~/TMPSHMDIR/); # Single-quote unless it's already single-quoted or we're passing TMPSHMDIR as an argument
    }
    elsif ($ARGV[$i] eq 'awkt'){                                       # Alias for running awk with tab as separator
       $ARGV[$i] = 'awk -F \'\t\' -v OFS=\'\t\'';
