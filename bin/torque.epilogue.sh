@@ -3,11 +3,11 @@
 # 25.05.2012 14:11:34 EDT
 # Harm van Bakel <hvbakel@gmail.com>
 
-# Torque epilogue script to include resource usage and job exit status info
 # Copy this script to $HOME/.torque.epilogue to have submitjob use it in a job 
 # submission automatically. Note that the script must be chmod 700, otherwise
 # torque won't run it.
 
+# include job resource usage and exit status info
 declare -A ex=( ["0"]="(Job exited normally)" \
                 ["-1"]="(job exec failed, before files, no retry)" \
                 ["-2"]="(job exec failed, after files, no retry)" \
@@ -28,4 +28,7 @@ declare -A ex=( ["0"]="(Job exited normally)" \
 
 echo "==> Resources used : ${7}"
 echo "==> Exit status    : ${10}" ${ex["${10}"]}
+
+# Remove job-specific /dev/shm temporary folder
+rm -rf /dev/shm/$1
 exit 0;

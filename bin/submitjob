@@ -12,8 +12,6 @@ $ENV{SUBMITJOB_NODES}    ||= 1;                         # Default number of node
 $ENV{MAX_CPUS_PER_NODE}  ||= 64;                        # Maximum number of CPUs on a single node
 $ENV{MAX_NODES}          ||= 123;                       # Maximum number of nodes in the cluster
 $ENV{QSUB}               ||= 'qsub';                    # Location of qsub binary
-$ENV{TMPDIR}             ||= "/dev/shm";                # Location for tmp file storage
-$ENV{TMP}                ||= $ENV{TMPDIR};              # Location for tmp file storage
 $SIG{'INT'}=$SIG{'HUP'}=$SIG{'ABRT'}=$SIG{'QUIT'}=$SIG{'TRAP'}=$SIG{'STOP'}=\&INTERRUPT;
 
 # MODULES
@@ -65,7 +63,6 @@ HELP
 
 # Set up job output and TMP directories
 unless (-e $ENV{PBS_OUTPUT}) { mkdir($ENV{PBS_OUTPUT}) or die "Could not create '$ENV{PBS_OUTPUT}' for pbs job output: $!\n"};
-unless (-e $ENV{TMPDIR})     { mkdir($ENV{TMPDIR})     or die "Could not create '$ENV{TMPDIR}' for pbs job output: $!\n"};
 
 # Copy default settings
 my $nMem          = $ENV{SUBMITJOB_MEM};
@@ -232,6 +229,12 @@ cd $sCwd
 export PBS_NCPU=$nCpus
 echo -E '==> Run command    :' "$sJobFmt"
 echo    '==> Execution host :' `hostname`
+if [ -e /dev/shm/\$PBS_JOBID ]
+then
+   export TMPSHMDIR=/dev/shm/\$PBS_JOBID
+else
+   export TMPSHMDIR=\$TMPDIR
+fi
 $sJobCmd
 SUBMIT
 close $fhTmpOut;
