@@ -16,11 +16,15 @@ my $sHelp         = 0;
 my $nFileCount    = 0;
 my $sPrefix       = '';
 my $flVerbose     = 0;
+my $nHead         = 0;
+my $nTail         = 0;
 my $flRemove      = 0;
 GetOptions("help!"     => \$sHelp,
            "number:i"  => \$nFileCount,
            "prefix:s"  => \$sPrefix,
            "verbose!"  => \$flVerbose,
+           "start:i"   => \$nHead,
+           "tail:i"    => \$nTail,
            "remove!"   => \$flRemove);
            
 # PRINT HELP
@@ -40,6 +44,10 @@ if ($sHelp) {
       Show exit status of the n most recently finished jobs (can be used in combination with -p)
     -v -verbose
       Show output for failed jobs
+    -s -start <integer>
+      Limit verbose output to first s lines. Default: no limit
+    -t -tail <integer>
+      Limit verbose output to last t lines. Default: no limit
     -r -remove
       Remove the output for failed or missing jobs
     -h -help
@@ -219,6 +227,20 @@ sub print_errors {
          print "  \e[1;31m$sRelPath/$sJobFile ==> $rhExitStatus->{$sJobFile}\e[0m\n";
          my $sJobOutput = join("/", $ENV{PBS_OUTPUT}, $sJobFile);
          open OUT, $sJobOutput or die "Can't open $sJobOutput: $!\n";
+         while (<OUT>){print "     $_";}
+         close OUT;
+      }
+      elsif ($nHead){
+         print "  \e[1;31m$sRelPath/$sJobFile ==> $rhExitStatus->{$sJobFile}\e[0m\n";
+         my $sJobOutput = join("/", $ENV{PBS_OUTPUT}, $sJobFile);
+         open OUT, "head -n $nHead $sJobOutput|" or die "Can't open $sJobOutput: $!\n";
+         while (<OUT>){print "     $_";}
+         close OUT;
+      }
+      elsif ($nTail){
+         print "  \e[1;31m$sRelPath/$sJobFile ==> $rhExitStatus->{$sJobFile}\e[0m\n";
+         my $sJobOutput = join("/", $ENV{PBS_OUTPUT}, $sJobFile);
+         open OUT, "tail -n $nTail $sJobOutput|" or die "Can't open $sJobOutput: $!\n";
          while (<OUT>){print "     $_";}
          close OUT;
       }
