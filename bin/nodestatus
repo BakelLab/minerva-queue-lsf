@@ -59,7 +59,7 @@ while (<IN>){
    }
    if (/^\s+properties =/){
       my $sProperties = (split /=\s*/)[1];
-      $sProperties =~ s/(minerva|lapis),compute,//;
+      $sProperties =~ s/(minerva,|lapis,|compute,|rack\d+,|switch\d+.,|westmere,|interlagos,)//g;
       $hNodes{$sCurrentNode}{properties} = $sProperties;
       $hFsize{properties} = length($sProperties) if(length($sProperties) > $hFsize{properties});
    }
@@ -181,11 +181,11 @@ foreach my $sNode (sort keys %hNodes){
    $sProcs    = "" if ($hNodes{$sNode}{state} =~ /down/);
    
    if ($ENV{DIAGNOSE}){
-      printf "%-${hFsize{node}}s %-${hFsize{state}}s %-${hFsize{properties}}s  %-${hFsize{loadave}}s %-${hFsize{mem}}s %-${hFsize{np}}s %-${hFsize{userlist}}s\n", 
+      printf "%-${hFsize{node}}s %-${hFsize{state}}s %-${hFsize{properties}}s  %-${hFsize{loadave}}s %-${hFsize{mem}}s %-${hFsize{np}}s %-10s\n", 
              $sNode, $hNodes{$sNode}{state}, $hNodes{$sNode}{properties}, $hNodes{$sNode}{loadave}, $hNodes{$sNode}{mem}, $sProcs, $hNodes{$sNode}{userlist};
    }
    else{
-      printf "%-${hFsize{node}}s %-${hFsize{state}}s %-${hFsize{properties}}s  %-${hFsize{loadave}}s %-${hFsize{np}}s %-${hFsize{userlist}}s\n", 
+      printf "%-${hFsize{node}}s %-${hFsize{state}}s %-${hFsize{properties}}s  %-${hFsize{loadave}}s %-${hFsize{np}}s %-10s\n", 
              $sNode, $hNodes{$sNode}{state}, $hNodes{$sNode}{properties}, $hNodes{$sNode}{loadave}, $sProcs, $hNodes{$sNode}{userlist};
    }
 }
