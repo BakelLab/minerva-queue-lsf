@@ -2,6 +2,11 @@
 # QUEUE UTILITY SCRIPTS #
 #########################
 
+The minerva-queue repository contains a set of scripts to make it easier
+to interact with the queueing system on the Minerva cluster. A brief
+description of each script is provided below and detailed help is also
+available by running each script with the -h argument.
+
 submitjob
   job submission script that takes care of wrapping most of the qsub
   arguments. Job STDOUT and STDERR are combined and sent to ~/pbs-output
@@ -43,9 +48,9 @@ nodestatus
   # indicates CPUs that are in use, but have not been allocated.
     
 lastjoboutput 
-  Will always show the output of the most recently finished job. Assumes 
-  that your job output is in ~/pbs-output (the submitjob default), or
-  any other dir specified in the PBS_OUTPUT environment variable.
+  Will always show the output of the most recently finished job(s). 
+  Assumes that your job output is in ~/pbs-output (the submitjob default), 
+  or any other dir specified in the PBS_OUTPUT environment variable.
 
 deletejobs
   Delete your running and/or queued jobs based on a set of criteria such
@@ -56,16 +61,15 @@ deletejobs
 jobexitstatus
   Reports a summary of the exit status for all jobs with output in
   ~/pbs-output/ or any other dir specified in the PBS_OUTPUT environment
-  variable. Note that this requires that the exit status is included
-  in the job output using the torque.epilogue.sh script.
+  variable. Note that this functionality requires that the torque prologue
+  and epilogue scripts are installed in your home dir (see INSTALL.txt).
   
 waitforjobs
   When submitting jobs with 'submitjob' it is possible to write the job
   ids to a file and pass this file to 'waitforjobs'. This script will
   then wait for these jobs to finish. It can be used as part of a shell
   script to allow for a batch of jobs to finish before doing a new
-  submission. Note that it is also possible to submit jobs with 
-  dependencies on other jobs.
+  submission.
   
 cache-qstat
   Admin script to wrap and add caching functionality to the default
