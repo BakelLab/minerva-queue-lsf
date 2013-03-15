@@ -6,8 +6,8 @@ submitjob
   job submission script that takes care of wrapping most of the qsub
   arguments. Job STDOUT and STDERR are combined and sent to ~/pbs-output
   or any other dir specified in the PBS_OUTPUT environment variable.
-  If you use a lot of inline awk/perl/matlab commands, submitjob will 
-  also properly escape these commands so that they will run in the queue.
+  If you use inline awk/perl/matlab commands, submitjob will also 
+  properly escape these commands so that they will run in the queue.
   If no destination queue is specified, submitjob will route the job to 
   the best fitting minerva queue.
 
@@ -22,6 +22,12 @@ submitjob
       => 24hrs walltime; 500Gb of memory (across all nodes), 128 CPUs
          on 2 nodes. This will work if your <jobcmd> is cluster-aware,
          like an openmpi run or parallelized make.
+         
+    submitjob 24 -c 64 -m 200 selfsched <cmdfile>
+      => Run a series of commands specified in <cmdfile> using the
+         selfsched utility. In the case listed here, selfsched will run
+         64 concurrent commands on a single node and exit after all
+         commands in <cmdfile> are processed.
 
 jobstatus  
   Summary representation of all queued and running jobs. Your jobs will
@@ -43,18 +49,9 @@ lastjoboutput
 
 deletejobs
   Delete your running and/or queued jobs based on a set of criteria such
-  as job name, state, queue, and job identifier range. Use multiple
+  as job name, state, queue, or job identifier range. Use multiple
   options together to narrow down your selection. The script will ask for 
   confirmation before it does anything.
-
-torque.epilogue.sh
-  Epilogue script for torque that appends a summary of resources used
-  and job exit status to the job output. This script can be included in
-  any job submission by adding the full path to the resource string (-l)
-  "epilogue=/path/to/torque.epilogue.sh". If you copy this file to your
-  home dir and rename it to ".torque.epilogue.sh", it will be picked up
-  by the submitjob script automatically. NOTE: The script must have 
-  permissions set to 700, otherwise torque won't use it!
   
 jobexitstatus
   Reports a summary of the exit status for all jobs with output in
