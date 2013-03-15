@@ -5,7 +5,7 @@
 
 # USAGE: qstat $@
 
-CMDPATH=/usr/local/bin/qstat
+CMDPATH=/usr/bin/qstat
 CACHETIME=60
 
 # Make sure that every possible combination of arguments gets its own cache file
