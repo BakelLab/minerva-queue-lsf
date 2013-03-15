@@ -14,7 +14,7 @@
 
 3. Copy the torque prologue and epilogue scripts to your home directory as
    hidden files so that they will be automatically picked up by the submitjob
-   script.
+   script (note, symlinks will *not* work).
    
       cp torque/torque.epilogue.sh ~/.torque.epilogue.sh
       cp torque/torque.prologue.sh ~/.torque.prologue.sh
@@ -30,3 +30,8 @@
    rather than on disk. The folder location is exposed through the TMPSHMDIR
    environment variable and it will be deleted automatically when upon completion
    of the job, ensuring that no files are left behind.
+
+
+Be sure to periodically run 'git pull' in the minerva-queue directory as the
+code is updated frequently to stay up to date with the latest queue changes
+and to add new features.
