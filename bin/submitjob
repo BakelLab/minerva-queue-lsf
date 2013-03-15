@@ -12,6 +12,7 @@ $ENV{SUBMITJOB_NODES}    ||= 1;                         # Default number of node
 $ENV{MAX_CPUS_PER_NODE}  ||= 64;                        # Maximum number of CPUs on a single node
 $ENV{MAX_NODES}          ||= 123;                       # Maximum number of nodes in the cluster
 $ENV{QSUB}               ||= 'qsub';                    # Location of qsub binary
+$ENV{TEMPDIR}            ||= "/tmp";                    # Location of temp dir
 $SIG{'INT'}=$SIG{'HUP'}=$SIG{'ABRT'}=$SIG{'QUIT'}=$SIG{'TRAP'}=$SIG{'STOP'}=\&INTERRUPT;
 
 # MODULES
@@ -29,34 +30,38 @@ if (@ARGV<1) {
    my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
    die <<HELP
 
-   Usage: $sScriptName [walltime] [-mpcnWqsk] <command>
+   Usage: $sScriptName [walltime] [-mpcnWqsk] { <command> | selfsched <file> }
+
+   <command>
+      The command to run on the cluster. Note that any output redirection 
+      or pipe symbols must be escaped, i.e. \\> or \\|
+
+   selfsched <file>
+      File with commands (one per line) to run through the selfsched utility using
+      the resources requested with submitjob
    
    Options: 
     walltime <integer>
        The expected run time of the job, measured in hours. Default: $ENV{SUBMITJOB_WALLTIME}
-    -m -mem <integer>
-       The maximum amount of memory used by the job in Gb.  Default: $ENV{SUBMITJOB_MEM} 
-    -p -property <string>
-       Optionally request specific node properties.
     -c -cpu <integer>
        The number of CPUs required per node. Default: $ENV{SUBMITJOB_CPUS}
+    -m -mem <integer>
+       The maximum amount of memory used by the job in Gb.  Default: $ENV{SUBMITJOB_MEM}
     -n -nodes <integer>
        The number of nodes required. Default: $ENV{SUBMITJOB_NODES}
-    -W -additional <string>
-       Additional attributes
     -q -queue <string>
-       Target queue
+       Target queue. Default: autoselect best queue
+    -p -property <string>
+       Restrict job to nodes with specified properties
+    -W -additional <string>
+       List additional qsub attributes
     -s -sem <string>
        Optional name of a file to append job IDs to
     -k -checkpoint
        Allow the job to be checkpointed
 
-    command
-       The command to run on the cluster. Note that any output redirection 
-       or pipe symbols must be escaped, i.e. \\> or \\|
-
    Job STDERR will be merged with STDOUT and redirected to $ENV{PBS_OUTPUT}
-   Any job exceeding the run time and memory limits will be killed automatically.
+   Any job exceeding the requested run time and memory limits will be killed automatically.
     
 HELP
 }
@@ -79,6 +84,7 @@ my $sAddAtrib      = "";
 my $sQueue         = "";
 my $flDebug        = 0;
 my $flCheckpoint   = 0;
+my $flSelfSched    = 0;
 while($flCheckForArgs){
    if ($ARGV[0] =~ /^(\d+)\.*\d*$/){              # CPU time
       $nReqTime = shift @ARGV;
@@ -130,6 +136,10 @@ while($flCheckForArgs){
        shift @ARGV;
        $flCheckpoint = 1;
    }
+   elsif (lc($ARGV[0]) =~ /^selfsched/){
+      shift @ARGV;
+      $flSelfSched = 1;
+   }
    else{
       $flCheckForArgs = 0;
    }
@@ -155,39 +165,6 @@ unless ($sQueue){
    }
 }
 
-# Do smart quoting, i.e. if arguments contain characters that were escaped in the input command,
-# make sure they are single-quoted in the output. This was added to facilitate submission of 
-# inline awk or matlab commands
-for (my $i=0 ; $i<@ARGV ; $i++ ){
-   if ($ARGV[$i] =~ /'/){                                             # Handles matlab commands with single-quoted strings
-      $ARGV[$i] = "\"$ARGV[$i]\"" unless ($ARGV[$i] =~ /^(\$|'|")/);  # double-quote argument unless it starts with $ (e.g. $'\t' ) or " or '
-   }
-   elsif ($ARGV[$i] =~ /[\${[\]!} ]/){                                # Handles awk, sed and other matlab commands
-      $ARGV[$i] = "'$ARGV[$i]'" unless ($ARGV[$i] =~ /'/ or $ARGV[$i] =~/TMPSHMDIR/); # Single-quote unless it's already single-quoted or we're passing TMPSHMDIR as an argument
-   }
-   elsif ($ARGV[$i] eq 'awkt'){                                       # Alias for running awk with tab as separator
-      $ARGV[$i] = 'awk -F \'\t\' -v OFS=\'\t\'';
-   }
-   elsif ($ARGV[$i] eq 'sortt'){                                      # Alias for running sort with tab as separator
-      $ARGV[$i] = 'sort -t $\'\t\'';
-   }
-   else{
-      # Nothing to see here, move along
-   }
-}
-
-# Format the job name to be the name of the command that is executed
-my $sCwd     =  getcwd;
-my @asPath   =  split(/\//, $sCwd);
-my $sExecDir =  pop @asPath;
-my $sJobName =  $ARGV[0];
-$sJobName    =~ s/^ +//;  # Remove leading spaces
-$sJobName    =~ s/ .*$//; # Remove anything following a space
-$sJobName    =~ s/.*\///; # Remove the path before any command
-$sJobName    =~ s/\&//;   # Remove any ampersands
-$sJobName    =~ s/^\d+//; # Remove any leading digits, otherwise qsub will throw an error
-$sJobName    =  substr($sJobName,0,14); # Make sure job name does not exceed max length
-
 # Set the job resource list
 my @asResources;
 my $sMem   = join('', int(1024*$nMem), 'M');
@@ -203,16 +180,61 @@ else{
    push @asResources, "nodes=$nNodes:ppn=$nCpus";
 }
 my $sResources = join(',', @asResources);
-
-# Add any additional attributes
 my $sPbsAttrib = $sAddAtrib ? "\n#PBS -W $sAddAtrib" : "";
 my $sPbsQueue  = $sQueue    ? "\n#PBS -q $sQueue"  : "";
 
+# Format the job name
+my $sJobName = $ARGV[0];
+$sJobName    =~ s/^ +//;  # Remove leading spaces
+$sJobName    =~ s/ .*$//; # Remove anything following a space
+$sJobName    =~ s/.*\///; # Remove the path before any command
+$sJobName    =~ s/\&//;   # Remove any ampersands
+$sJobName    =~ s/^\d+//; # Remove any leading digits, otherwise qsub will throw an error
+$sJobName    =  substr($sJobName,0,14); # Make sure job name does not exceed max length
+
+# Set up the job command depending on whether this is a self-scheduling run or an inline-command submission
+my ($sJobCmd, $sJobFmt) = ("","");
+if ($flSelfSched){
+   die "Error: the 'selfsched' command only takes one argument as input\n" unless (@ARGV == 1);
+   die "Error: the selfsched input file '$ARGV[0]' does not exist\n" unless (-e $ARGV[0]);
+   $sJobCmd  = "module load selfsched\n";
+   $sJobCmd .= "export fstatus=selfsched.$sJobName.`echo \$PBS_JOBID | awk -F. '{print \$1}'`.status\n";
+   $sJobCmd .= "mpirun -np $nNcpus selfsched < $ARGV[0]";
+   $sJobFmt  = "mpirun -np $nNcpus selfsched < $ARGV[0]";
+}
+else{
+   # Do smart quoting, i.e. if arguments contain characters that were escaped in the input command,
+   # make sure they are single-quoted in the output. This was added to facilitate submission of 
+   # inline awk or matlab commands
+   for (my $i=0 ; $i<@ARGV ; $i++ ){
+      if ($ARGV[$i] =~ /'/){                                             # Handles matlab commands with single-quoted strings
+         $ARGV[$i] = "\"$ARGV[$i]\"" unless ($ARGV[$i] =~ /^(\$|'|")/);  # double-quote argument unless it starts with $ (e.g. $'\t' ) or " or '
+      }
+      elsif ($ARGV[$i] =~ /[\${[\]!} ]/){                                # Handles awk, sed and other matlab commands
+         $ARGV[$i] = "'$ARGV[$i]'" unless ($ARGV[$i] =~ /'/ or $ARGV[$i] =~/TMPSHMDIR/); # Single-quote unless it's already single-quoted or we're passing TMPSHMDIR as an argument
+      }
+      elsif ($ARGV[$i] eq 'awkt'){                                       # Alias for running awk with tab as separator
+         $ARGV[$i] = 'awk -F \'\t\' -v OFS=\'\t\'';
+      }
+      elsif ($ARGV[$i] eq 'sortt'){                                      # Alias for running sort with tab as separator
+         $ARGV[$i] = 'sort -t $\'\t\'';
+      }
+      else{
+         # Nothing to see here, move along
+      }
+   }
+   
+   # Join arguments and optionally route through cr_run for checkpointing
+   $sJobCmd =  $flCheckpoint ? join(' ', 'cr_run', @ARGV) : join(' ', @ARGV);
+   $sJobFmt =  $sJobCmd;
+   $sJobFmt =~ s/\$/\\\$/g;  # Escape $, otherwise literal variables will be subsituted during 'echo'
+   $sJobFmt =~ s/\"/\\\"/g;  # Escape ", otherwise they will be lost during 'echo'
+}
+
 # Write the job script to a temporary file
-my $sJobCmd  = $flCheckpoint ? join(' ', 'cr_run', @ARGV) : join(' ', @ARGV);
-my $sJobFmt  = $sJobCmd;
-$sJobFmt     =~ s/\$/\\\$/g;  # Escape $, otherwise literal variables will be subsituted during 'echo'
-$sJobFmt     =~ s/\"/\\\"/g;  # Escape ", otherwise they will be lost during 'echo'
+my $sCwd     =  getcwd;
+my @asPath   =  split(/\//, $sCwd);
+my $sExecDir =  pop @asPath;
 my ($fhTmpOut, $sTmpOut) = tempfile('submitjob-XXXXX', DIR=>$ENV{TEMPDIR}, UNLINK=>1);
 print $fhTmpOut <<SUBMIT;
 #!/bin/bash
@@ -239,7 +261,7 @@ $sJobCmd
 SUBMIT
 close $fhTmpOut;
 
-# Check if we're running in debug mode
+# Submit job or print job submission script, depending on whether we're running in debug mode
 if ($flDebug){
    open DEBUG, $sTmpOut or die "Error: can't open temporary qsub file\n";
    while (<DEBUG>){
