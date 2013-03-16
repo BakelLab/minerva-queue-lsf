@@ -198,7 +198,7 @@ if ($flSelfSched){
    die "Error: the 'selfsched' command only takes one argument as input\n" unless (@ARGV == 1);
    die "Error: the selfsched input file '$ARGV[0]' does not exist\n" unless (-e $ARGV[0]);
    $sJobCmd  = "module load selfsched\n";
-   $sJobCmd .= "export fstatus=selfsched.$sJobName.`echo \$PBS_JOBID | awk -F. '{print \$1}'`.status\n";
+   $sJobCmd .= "export fstatus=$sJobName.`echo \$PBS_JOBID | awk -F. '{print \$1}'`.selfsched.status\n";
    $sJobCmd .= "mpirun -np $nNcpus selfsched < $ARGV[0]";
    $sJobFmt  = "mpirun -np $nNcpus selfsched < $ARGV[0]";
 }
