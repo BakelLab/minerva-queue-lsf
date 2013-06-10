@@ -6,7 +6,7 @@
 # GLOBALS
 $ENV{PBS_OUTPUT}         ||= "$ENV{HOME}/pbs-output";   # Folder with pbs output files
 $ENV{SUBMITJOB_CPUS}     ||= 1;                         # Default number of CPUs per node
-$ENV{SUBMITJOB_MEM}      ||= 3.8;                       # Default memory allocation in Gb
+$ENV{SUBMITJOB_CPUMEM}   ||= 3.8;                       # Default memory allocation per CPU in Gb
 $ENV{SUBMITJOB_WALLTIME} ||= 24;                        # Default walltime in hours
 $ENV{SUBMITJOB_NODES}    ||= 1;                         # Default number of nodes
 $ENV{MAX_CPUS_PER_NODE}  ||= 64;                        # Maximum number of CPUs on a single node
@@ -42,11 +42,11 @@ if (@ARGV<1) {
    
    Options: 
     walltime <integer>
-       The expected run time of the job, measured in hours. Default: $ENV{SUBMITJOB_WALLTIME}
+       The expected run time of the job, measured in hours. Default: $ENV{SUBMITJOB_WALLTIME} 
     -c -cpu <integer>
        The number of CPUs required per node. Default: $ENV{SUBMITJOB_CPUS}
     -m -mem <integer>
-       The maximum amount of memory used by the job in Gb.  Default: $ENV{SUBMITJOB_MEM}
+       The maximum amount of memory used by the job in Gb. Default: $ENV{SUBMITJOB_CPUMEM} * (CPUs in job)
     -n -nodes <integer>
        The number of nodes required. Default: $ENV{SUBMITJOB_NODES}
     -q -queue <string>
@@ -70,7 +70,7 @@ HELP
 unless (-e $ENV{PBS_OUTPUT}) { mkdir($ENV{PBS_OUTPUT}) or die "Could not create '$ENV{PBS_OUTPUT}' for pbs job output: $!\n"};
 
 # Copy default settings
-my $nMem          = $ENV{SUBMITJOB_MEM};
+my $nTotalMem     = -1;
 my $nCpus         = $ENV{SUBMITJOB_CPUS};
 my $nNodes        = $ENV{SUBMITJOB_NODES};
 my $nReqTime      = $ENV{SUBMITJOB_WALLTIME};
@@ -103,8 +103,8 @@ while($flCheckForArgs){
    }
    elsif($ARGV[0] =~ /(^-m)|(^--mem)|(^-mem)/){
       shift @ARGV;
-      $nMem = shift @ARGV;
-      die "Error: amount of memory must be a number\n" unless($nMem =~ /^\d+\.*\d*$/);
+      $nTotalMem = shift @ARGV;
+      die "Error: amount of memory must be a number\n" unless($nTotalMem =~ /^\d+\.*\d*$/);
    }
    elsif($ARGV[0] =~ /(^-c)|(^--cpu)|(^-cpu)/){
       shift @ARGV;
@@ -145,6 +145,11 @@ while($flCheckForArgs){
    }
 }
 
+# Set up default memory allocation based on number of requested CPUs
+if ($nTotalMem < 0){
+   $nTotalMem = $nCpus * $ENV{SUBMITJOB_CPUMEM};
+}
+
 # Route jobs if no queue was specified
 unless ($sQueue){
    if ($nCpus == 1){
@@ -155,10 +160,12 @@ unless ($sQueue){
       $sQueue = "small";
    }
    elsif ($nCpus >=32 and $nCpus < 2048){
-      $sQueue = "medium";
+      $sQueue    = "medium";
+      $nTotalMem = 0;
    }
    elsif ($nCpus >=2048){
-      $sQueue = "large";
+      $sQueue    = "large";
+      $nTotalMem = 0;
    }
    else{
       die "Error: None of the queues has the requested resources for this job\n";
@@ -167,10 +174,10 @@ unless ($sQueue){
 
 # Set the job resource list
 my @asResources;
-my $sMem   = join('', int(1024*$nMem), 'M');
+my $sTotalMem   = join('', int(1024*$nTotalMem), 'M');
 my $nNcpus = $nNodes * $nCpus;
 push @asResources, "walltime=$sWalltime" if ($sWalltime);
-push @asResources, "mem=$sMem"           if ($nMem);
+push @asResources, "mem=$sTotalMem"      if ($nTotalMem);
 push @asResources, "prologue=$ENV{HOME}/.torque.prologue.sh" if (-e "$ENV{HOME}/.torque.prologue.sh");
 push @asResources, "epilogue=$ENV{HOME}/.torque.epilogue.sh" if (-e "$ENV{HOME}/.torque.epilogue.sh");
 if ($sProperty){
