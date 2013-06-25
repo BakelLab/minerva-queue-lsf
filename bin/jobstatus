@@ -81,7 +81,7 @@ if ($flPUinfo){
       if(/^\s+job_array_request = (.+)$/)    { $arrayreq = $1; }
       
       if ( (/^Job Id: / or eof) and $user){
-         $user = "*\e[0;46m${user}\e[0m" if ($user eq $ENV{USER});
+         $user = "zzzzz*\e[0;46m${user}\e[0m" if ($user eq $ENV{USER});
          my ($rescpus,$resgpus) = (0,0,0);
          
          # First try to obtain the number of CPUs and GPUs from the resource list, if available
@@ -151,7 +151,7 @@ else{
       s/[\n\r]+$//;
       my ($id,$job_name,$user,$time_elapsed,$status,$queue) = split /\s+/, $_, -1;
       if ($queue){
-         $user = "*\e[0;46m${user}\e[0m" if ($user eq $ENV{USER});
+         $user = "zzzzz*\e[0;46m${user}\e[0m" if ($user eq $ENV{USER});
          $hUserStats{$user}{$queue}{$status}++;
          $hQueueStats{$queue}{$status}++;
          $hTotalStats{$status}++;
@@ -176,9 +176,9 @@ print '=' x length($sHeader) . "\n$sHeader\n" . '-' x length($sHeader) . "\n";
 # Print user stats
 foreach my $user (sort(keys(%hUserStats))) {
    foreach my $queue (sort(keys(%{$hUserStats{$user}}))) {
-      if ($user =~ /^\*/){
+      if ($user =~ /^zzzzz\*/){
          my $formatted = $user;
-         $formatted =~ s/^\*//;
+         $formatted =~ s/^zzzzz\*//;
          print sprintf("%-23s %-14s", $formatted, $queue);
       }
       else{
