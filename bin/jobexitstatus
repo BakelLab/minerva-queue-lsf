@@ -229,6 +229,7 @@ sub print_errors {
          open OUT, $sJobOutput or die "Can't open $sJobOutput: $!\n";
          while (<OUT>){print "     $_";}
          close OUT;
+	 print "\n";
       }
       elsif ($nHead){
          print "  \e[1;31m$sRelPath/$sJobFile ==> $rhExitStatus->{$sJobFile}\e[0m\n";
@@ -236,6 +237,7 @@ sub print_errors {
          open OUT, "head -n $nHead $sJobOutput|" or die "Can't open $sJobOutput: $!\n";
          while (<OUT>){print "     $_";}
          close OUT;
+	 print "\n";
       }
       elsif ($nTail){
          print "  \e[1;31m$sRelPath/$sJobFile ==> $rhExitStatus->{$sJobFile}\e[0m\n";
@@ -243,6 +245,7 @@ sub print_errors {
          open OUT, "tail -n $nTail $sJobOutput|" or die "Can't open $sJobOutput: $!\n";
          while (<OUT>){print "     $_";}
          close OUT;
+	 print "\n";
       }
       else{
          print "  $sRelPath/$sJobFile ==> $rhExitStatus->{$sJobFile}\n";
