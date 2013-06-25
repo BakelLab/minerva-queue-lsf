@@ -232,7 +232,7 @@ else{
    }
    
    # Join arguments and optionally route through cr_run for checkpointing
-   $sJobCmd =  $flCheckpoint ? join(' ', 'cr_run', @ARGV) : join(' ', @ARGV);
+   $sJobCmd =  join(' ', @ARGV);
    $sJobFmt =  $sJobCmd;
    $sJobFmt =~ s/\$/\\\$/g;  # Escape $, otherwise literal variables will be subsituted during 'echo'
    $sJobFmt =~ s/\"/\\\"/g;  # Escape ", otherwise they will be lost during 'echo'
@@ -279,7 +279,8 @@ if ($flDebug){
 else{
    # Now submit the job script and catch the job ID
    my $sJobID = "";
-   open QSUB, "$ENV{QSUB} $sTmpOut|" or die "Error: can't execute qsub command: $!\n";
+   my $sQsub  = $flCheckpoint ? "$ENV{QSUB} -c enabled" : $ENV{QSUB};
+   open QSUB, "$sQsub $sTmpOut|" or die "Error: can't execute qsub command: $!\n";
    while (<QSUB>){
       next if (/^\s*$/);
       next if (/^ *#/);
