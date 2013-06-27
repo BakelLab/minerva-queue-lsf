@@ -242,13 +242,14 @@ else{
 my $sCwd     =  getcwd;
 my @asPath   =  split(/\//, $sCwd);
 my $sExecDir =  pop @asPath;
+my $sJoinOut =  $flCheckpoint ? 'n' : 'oe';
 my ($fhTmpOut, $sTmpOut) = tempfile('submitjob-XXXXX', DIR=>$ENV{TEMPDIR}, UNLINK=>1);
 print $fhTmpOut <<SUBMIT;
 #!/bin/bash
 #PBS -S /bin/bash
 #PBS -e localhost:$ENV{PBS_OUTPUT}
 #PBS -o localhost:$ENV{PBS_OUTPUT}
-#PBS -j oe
+#PBS -j $sJoinOut
 #PBS -l $sResources
 #PBS -m a
 #PBS -r n
