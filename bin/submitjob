@@ -159,11 +159,7 @@ if ($nTotalMem < 0){
 
 # Route jobs if no queue was specified
 unless ($sQueue){
-   if ($nCpus == 1){
-      $sQueue ="serial";
-   }
-   elsif ($nCpus >1 and $nCpus < 32){
-      $nCpus = 4 if $nCpus <4;
+   if ($nCpus >0 and $nCpus < 32){
       $sQueue = "small";
    }
    elsif ($nCpus >=32 and $nCpus < 2048){
