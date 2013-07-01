@@ -195,8 +195,10 @@ else{
    push @asResources, "nodes=$nNodes:ppn=$nCpus";
 }
 my $sResources = join(',', @asResources);
-my $sPbsAttrib = $sAddAtrib ? "\n#PBS -W $sAddAtrib" : "";
-my $sPbsQueue  = $sQueue    ? "\n#PBS -q $sQueue"  : "";
+my $sPbsAttrib = $sAddAtrib    ? "\n#PBS -W $sAddAtrib" : "";
+my $sPbsQueue  = $sQueue       ? "\n#PBS -q $sQueue"  : "";
+my $sPbsChkpt  = $flCheckpoint ? "\n#PBS -c enabled" : "";
+my $sPbsAlloc  = $sAllocation  ? "\n#PBS -A $sAllocation" : "";
 
 # Format the job name
 my $sJobName = $ARGV[0];
@@ -262,7 +264,7 @@ print $fhTmpOut <<SUBMIT;
 #PBS -m a
 #PBS -r n
 #PBS -V
-#PBS -N $sJobName$sPbsAttrib$sPbsQueue
+#PBS -N $sJobName$sPbsAttrib$sPbsQueue$sPbsChkpt$sPbsAlloc
 cd $sCwd
 export PBS_NCPU=$nCpus
 echo -E '==> Run command    :' "$sJobFmt"
@@ -288,11 +290,7 @@ if ($flDebug){
 else{
    # Now submit the job script and catch the job ID
    my $sJobID = "";
-   my $sQsub  = $ENV{QSUB};
-   $sQsub    .= " -c enabled"      if ($flCheckpoint);
-   $sQsub    .= " -A $sAllocation" if ($sAllocation);
-   
-   open QSUB, "$sQsub $sTmpOut|" or die "Error: can't execute qsub command: $!\n";
+   open QSUB, "$ENV{QSUB} $sTmpOut|" or die "Error: can't execute qsub command: $!\n";
    while (<QSUB>){
       next if (/^\s*$/);
       next if (/^ *#/);
