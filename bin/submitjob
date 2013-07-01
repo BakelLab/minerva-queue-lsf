@@ -51,6 +51,8 @@ if (@ARGV<1) {
        The number of nodes required. Default: $ENV{SUBMITJOB_NODES}
     -q -queue <string>
        Target queue. Default: autoselect best queue
+    -A -allocation <string>
+       Allocation to use for this job
     -p -property <string>
        Restrict job to nodes with specified properties
     -W -additional <string>
@@ -85,6 +87,7 @@ my $sQueue         = "";
 my $flDebug        = 0;
 my $flCheckpoint   = 0;
 my $flSelfSched    = 0;
+my $sAllocation    = '';
 while($flCheckForArgs){
    if ($ARGV[0] =~ /^(\d+)\.*\d*$/){              # CPU time
       $nReqTime = shift @ARGV;
@@ -136,6 +139,10 @@ while($flCheckForArgs){
        shift @ARGV;
        $flCheckpoint = 1;
    }
+   elsif($ARGV[0] =~ /(^-A)|(^--allocation)|(^-allocation)/){
+       shift @ARGV;
+       $sAllocation = shift @ARGV;
+   }
    elsif (lc($ARGV[0]) =~ /^selfsched/){
       shift @ARGV;
       $flSelfSched = 1;
@@ -170,6 +177,11 @@ unless ($sQueue){
    else{
       die "Error: None of the queues has the requested resources for this job\n";
    }
+}
+
+# Modify queue name if we're not running in an allocation
+unless ($sAllocation){
+   $sQueue = $sQueue . "_24hr" unless ($sQueue =~ /_24hr$/);
 }
 
 # Set the job resource list
@@ -280,7 +292,10 @@ if ($flDebug){
 else{
    # Now submit the job script and catch the job ID
    my $sJobID = "";
-   my $sQsub  = $flCheckpoint ? "$ENV{QSUB} -c enabled" : $ENV{QSUB};
+   my $sQsub  = $ENV{QSUB};
+   $sQsub    .= " -c enabled"      if ($flCheckpoint);
+   $sQsub    .= " -A $sAllocation" if ($sAllocation);
+   
    open QSUB, "$sQsub $sTmpOut|" or die "Error: can't execute qsub command: $!\n";
    while (<QSUB>){
       next if (/^\s*$/);
