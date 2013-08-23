@@ -177,7 +177,7 @@ unless ($sQueue){
 
 # Modify queue name if we're not running in an allocation
 unless ($sAllocation){
-   $sQueue = $sQueue . "_24hr" unless ($sQueue =~ /_24hr$/);
+   $sQueue = $sQueue . "_24hr" unless ($sQueue =~ /_24hr$/ or $sQueue =~ /intel/);
 }
 
 # Set the job resource list
