@@ -194,11 +194,12 @@ if ($sProperty){
 else{
    push @asResources, "nodes=$nNodes:ppn=$nCpus";
 }
-my $sResources = join(',', @asResources);
-my $sPbsAttrib = $sAddAtrib    ? "\n#PBS -W $sAddAtrib" : "";
-my $sPbsQueue  = $sQueue       ? "\n#PBS -q $sQueue"  : "";
-my $sPbsChkpt  = $flCheckpoint ? "\n#PBS -c enabled" : "";
-my $sPbsAlloc  = $sAllocation  ? "\n#PBS -A $sAllocation" : "";
+my $sResources  = join(',', @asResources);
+my $sPbsAttrib  = $sAddAtrib    ? "\n#PBS -W $sAddAtrib" : "";
+my $sPbsQueue   = $sQueue       ? "\n#PBS -q $sQueue"  : "";
+my $sPbsChkpt   = $flCheckpoint ? "\n#PBS -c enabled" : "";
+my $sPbsAlloc   = $sAllocation  ? "\n#PBS -A $sAllocation" : "";
+my $sPbsErrPath = $flCheckpoint ? "\n#PBS -e localhost:$ENV{PBS_OUTPUT}": "";
 
 # Format the job name
 my $sJobName = $ARGV[0];
@@ -257,14 +258,13 @@ my ($fhTmpOut, $sTmpOut) = tempfile('submitjob-XXXXX', DIR=>$ENV{TEMPDIR}, UNLIN
 print $fhTmpOut <<SUBMIT;
 #!/bin/bash
 #PBS -S /bin/bash
-#PBS -e localhost:$ENV{PBS_OUTPUT}
 #PBS -o localhost:$ENV{PBS_OUTPUT}
 #PBS -j $sJoinOut
 #PBS -l $sResources
 #PBS -m a
 #PBS -r n
 #PBS -V
-#PBS -N $sJobName$sPbsAttrib$sPbsQueue$sPbsChkpt$sPbsAlloc
+#PBS -N $sJobName$sPbsAttrib$sPbsQueue$sPbsChkpt$sPbsAlloc$sPbsErrPath
 cd $sCwd
 export PBS_NCPU=$nCpus
 echo -E '==> Run command    :' "$sJobFmt"

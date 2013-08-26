@@ -69,7 +69,7 @@ while (<IN>){
       $hFsize{np} = $nNp+1 if($nNp > $hFsize{np});
    }
    if (/^\s+jobs =/){
-      my @asJobs = split /, /;
+      my @asJobs = split /,/;
       $hNodes{$sCurrentNode}{jobs} = scalar(@asJobs);
    }
    if (/^\s+status =/){
