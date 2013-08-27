@@ -290,15 +290,27 @@ if ($flDebug){
 else{
    # Now submit the job script and catch the job ID
    my $sJobID = "";
-   open QSUB, "$ENV{QSUB} $sTmpOut|" or die "Error: can't execute qsub command: $!\n";
-   while (<QSUB>){
-      next if (/^\s*$/);
-      next if (/^ *#/);
-      s/[\n\r]+$//;
-      $sJobID = $_;
-      last;
+   my $flSubmitted = 0;
+   while(not($flSubmitted)){
+      open QSUB, "$ENV{QSUB} $sTmpOut|" or die "Error: can't execute qsub command: $!\n";
+      while (<QSUB>){
+         next if (/^\s*$/);
+         next if (/^ *#/);
+         s/[\n\r]+$//;
+         $sJobID = $_;
+         last;
+      }
+      close QSUB;
+      
+      # Make sure job was successfully submitted by checking if we got a jobID back
+      if ($sJobID =~ /^\d+\./){
+         $flSubmitted = 1;
+      }
+      else{
+         warn "Submission failed, retrying in 5 seconds\n";
+         sleep 5;
+      }
    }
-   close QSUB;
    
    # Write the job ID to the semaphore file if requested
    if ($sSemaphore){
@@ -311,7 +323,7 @@ else{
       warn "$sJobID written to $sSemaphore\n";
    }
    else{
-      warn "$sJobID\n";
+      warn "Job submitted: $sJobID\n";
    }
 }
 
