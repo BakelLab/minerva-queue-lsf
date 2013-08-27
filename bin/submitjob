@@ -159,7 +159,10 @@ if ($nTotalMem < 0){
 
 # Route jobs if no queue was specified
 unless ($sQueue){
-   if ($nCpus >0 and $nCpus < 32){
+   if($nReqTime < 2){
+      $sQueue = "express";
+   }
+   elsif ($nCpus >0 and $nCpus < 32){
       $sQueue = "small";
    }
    elsif ($nCpus >=32 and $nCpus < 2048){
@@ -177,7 +180,7 @@ unless ($sQueue){
 
 # Modify queue name if we're not running in an allocation
 unless ($sAllocation){
-   $sQueue = $sQueue . "_24hr" unless ($sQueue =~ /_24hr$/ or $sQueue =~ /intel/);
+   $sQueue = $sQueue . "_24hr" unless ($sQueue =~ /_24hr$/ or $sQueue =~ /intel/ or $sQueue =~ /express/);
 }
 
 # Set the job resource list
