@@ -4,15 +4,14 @@
 # Harm van Bakel <hvbakel@gmail.com>
 
 # GLOBALS
-$ENV{PBS_OUTPUT}         ||= "$ENV{HOME}/pbs-output";   # Folder with pbs output files
-$ENV{SUBMITJOB_CPUS}     ||= 1;                         # Default number of CPUs per node
-$ENV{SUBMITJOB_CPUMEM}   ||= 3.8;                       # Default memory allocation per CPU in Gb
-$ENV{SUBMITJOB_WALLTIME} ||= 24;                        # Default walltime in hours
-$ENV{SUBMITJOB_NODES}    ||= 1;                         # Default number of nodes
-$ENV{MAX_CPUS_PER_NODE}  ||= 64;                        # Maximum number of CPUs on a single node
-$ENV{MAX_NODES}          ||= 123;                       # Maximum number of nodes in the cluster
-$ENV{QSUB}               ||= 'qsub';                    # Location of qsub binary
-$ENV{TEMPDIR}            ||= "/tmp";                    # Location of temp dir
+$ENV{SJOB_PBS_OUTPUT} ||= "$ENV{HOME}/pbs-output";   # Folder with pbs output files
+$ENV{SJOB_CPUS}       ||= 1;                         # Default number of CPUs per node
+$ENV{SJOB_CPUMEM}     ||= 3.8;                       # Default memory allocation per CPU in Gb
+$ENV{SJOB_WALLTIME}   ||= 24;                        # Default walltime in hours
+$ENV{SJOB_NODES}      ||= 1;                         # Default number of nodes
+$ENV{SJOB_DEFALLOC}   ||= '';                        # Default allocation
+$ENV{QSUB}            ||= 'qsub';                    # Location of qsub binary
+$ENV{TEMPDIR}         ||= "/tmp";                    # Location of temp dir
 $SIG{'INT'}=$SIG{'HUP'}=$SIG{'ABRT'}=$SIG{'QUIT'}=$SIG{'TRAP'}=$SIG{'STOP'}=\&INTERRUPT;
 
 # MODULES
@@ -26,7 +25,7 @@ use File::Temp qw(tempfile tempdir);
 ##########
 
 # Print help message if called without arguments
-if (@ARGV<1) {
+if ( (@ARGV<1) or ($ARGV[0] eq '-h') ) {
    my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
    die <<HELP
 
@@ -42,13 +41,13 @@ if (@ARGV<1) {
    
    Options: 
     walltime <integer>
-       The expected run time of the job, measured in hours. Default: $ENV{SUBMITJOB_WALLTIME} 
+       The expected run time of the job, measured in hours. Default: $ENV{SJOB_WALLTIME} 
     -c -cpu <integer>
-       The number of CPUs required per node. Default: $ENV{SUBMITJOB_CPUS}
+       The number of CPUs required per node. Default: $ENV{SJOB_CPUS}
     -m -mem <integer>
-       The maximum amount of memory used by the job in Gb. Default: $ENV{SUBMITJOB_CPUMEM} * (CPUs in job)
+       The maximum amount of memory used by the job in Gb. Default: $ENV{SJOB_CPUMEM} * (CPUs in job)
     -n -nodes <integer>
-       The number of nodes required. Default: $ENV{SUBMITJOB_NODES}
+       The number of nodes required. Default: $ENV{SJOB_NODES}
     -q -queue <string>
        Target queue. Default: autoselect best queue
     -A -allocation <string>
@@ -62,20 +61,21 @@ if (@ARGV<1) {
     -k -checkpoint
        Allow the job to be checkpointed
 
-   Job STDERR will be merged with STDOUT and redirected to $ENV{PBS_OUTPUT}
+   Job STDERR will be merged with STDOUT and redirected to $ENV{SJOB_PBS_OUTPUT}
    Any job exceeding the requested run time and memory limits will be killed automatically.
     
 HELP
 }
 
 # Set up job output and TMP directories
-unless (-e $ENV{PBS_OUTPUT}) { mkdir($ENV{PBS_OUTPUT}) or die "Could not create '$ENV{PBS_OUTPUT}' for pbs job output: $!\n"};
+unless (-e $ENV{SJOB_PBS_OUTPUT}) { mkdir($ENV{SJOB_PBS_OUTPUT}) or die "Could not create '$ENV{SJOB_PBS_OUTPUT}' for pbs job output: $!\n"};
 
 # Copy default settings
 my $nTotalMem     = -1;
-my $nCpus         = $ENV{SUBMITJOB_CPUS};
-my $nNodes        = $ENV{SUBMITJOB_NODES};
-my $nReqTime      = $ENV{SUBMITJOB_WALLTIME};
+my $nCpus         = $ENV{SJOB_CPUS};
+my $nNodes        = $ENV{SJOB_NODES};
+my $nReqTime      = $ENV{SJOB_WALLTIME};
+my $sAllocation   = $ENV{SJOB_DEFALLOC};
 
 # Check submitjob arguments
 my $flCheckForArgs = 1;
@@ -87,7 +87,6 @@ my $sQueue         = "";
 my $flDebug        = 0;
 my $flCheckpoint   = 0;
 my $flSelfSched    = 0;
-my $sAllocation    = '';
 while($flCheckForArgs){
    if ($ARGV[0] =~ /^(\d+)\.*\d*$/){              # CPU time
       $nReqTime = shift @ARGV;
@@ -112,12 +111,12 @@ while($flCheckForArgs){
    elsif($ARGV[0] =~ /(^-c)|(^--cpu)|(^-cpu)/){
       shift @ARGV;
       $nCpus = shift @ARGV;
-      die "Error: number of CPUs per node must be between 1 and $ENV{MAX_CPUS_PER_NODE}\n" unless( ($nCpus =~ /^\d+$/) and ($nCpus >= 0) and ($nCpus <= $ENV{MAX_CPUS_PER_NODE}) );
+      die "Error: number of CPUs per node must be a number greater than 1\n" unless( ($nCpus =~ /^\d+$/) and ($nCpus >= 0) );
    }
    elsif($ARGV[0] =~ /(^-n)|(^--nodes)|(^-nodes)/){
        shift @ARGV;
        $nNodes = shift @ARGV;
-       die "Error: number of nodes must be between 1 and $ENV{MAX_NODES}\n" unless( ($nNodes =~ /^\d+$/) and ($nNodes >= 0) and ($nNodes <= $ENV{MAX_NODES}) );
+       die "Error: number of nodes must be a number greater than 1\n" unless( ($nNodes =~ /^\d+$/) and ($nNodes >= 0) );
    }
    elsif($ARGV[0] =~ /(^-s)|(^--sem)|(^-sem)/){
       shift @ARGV;
@@ -154,7 +153,7 @@ while($flCheckForArgs){
 
 # Set up default memory allocation based on number of requested CPUs
 if ($nTotalMem < 0){
-   $nTotalMem = $nCpus * $ENV{SUBMITJOB_CPUMEM};
+   $nTotalMem = $nCpus * $ENV{SJOB_CPUMEM};
 }
 
 # Route jobs if no queue was specified
@@ -202,7 +201,7 @@ my $sPbsAttrib  = $sAddAtrib    ? "\n#PBS -W $sAddAtrib" : "";
 my $sPbsQueue   = $sQueue       ? "\n#PBS -q $sQueue"  : "";
 my $sPbsChkpt   = $flCheckpoint ? "\n#PBS -c enabled" : "";
 my $sPbsAlloc   = $sAllocation  ? "\n#PBS -A $sAllocation" : "";
-my $sPbsErrPath = $flCheckpoint ? "\n#PBS -e localhost:$ENV{PBS_OUTPUT}": "";
+my $sPbsErrPath = $flCheckpoint ? "\n#PBS -e localhost:$ENV{SJOB_PBS_OUTPUT}": "";
 
 # Format the job name
 my $sJobName = $ARGV[0];
@@ -261,7 +260,7 @@ my ($fhTmpOut, $sTmpOut) = tempfile('submitjob-XXXXX', DIR=>$ENV{TEMPDIR}, UNLIN
 print $fhTmpOut <<SUBMIT;
 #!/bin/bash
 #PBS -S /bin/bash
-#PBS -o localhost:$ENV{PBS_OUTPUT}
+#PBS -o localhost:$ENV{SJOB_PBS_OUTPUT}
 #PBS -j $sJoinOut
 #PBS -l $sResources
 #PBS -m a
