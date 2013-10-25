@@ -146,7 +146,7 @@ if ($flPUinfo){
 else{
    open QSTAT, "$sQueueCmd -t |" or die "Error: could not run 'qstat' to get job status report: $!\n";
    while (<QSTAT>){
-      next if (/^Job id/);
+      next if (/^Job ID/);
       next if (/^---/);
       s/[\n\r]+$//;
       my ($id,$job_name,$user,$time_elapsed,$status,$queue) = split /\s+/, $_, -1;
