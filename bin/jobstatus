@@ -20,11 +20,13 @@ my %hStatusCodes  = ('R'=>'Running','Q'=>'Queued','H'=>'Held','T'=>'Moving',
 my $flHelp       = 0;
 my $flProcInfo   = 0;
 my $flGpuInfo    = 0;
+my $sWebUser     = "";
 my $sServer      = "";
 GetOptions("help!"      => \$flHelp,
            "cpuinfo!"   => \$flProcInfo,
            "pcpuinfo!"  => \$flProcInfo,
            "gpuinfo!"   => \$flGpuInfo,
+           "web:s"      => \$sWebUser,
            "server:s"   => \$sServer);
 
 # PRINT HELP
@@ -43,6 +45,8 @@ if ($flHelp) {
       Show processors in use rather than jobs
     -g -gpuinfo
       Show GPUs in use rather than jobs
+    -w --webuser
+      Specify user when called from web server
     -h -help
       This help message
    
@@ -53,6 +57,9 @@ HELP
 ##########
 ## MAIN ##
 ##########
+
+# Set webuser
+my $sCurrentUser = $sWebUser ? $sWebUser : $ENV{USER};
 
 # Check whether the qstat binary exist in path
 my $flQstatExists = grep -x "$_/$ENV{QSTAT}", @PATH;
@@ -81,7 +88,12 @@ if ($flPUinfo){
       if(/^\s+job_array_request = (.+)$/)    { $arrayreq = $1; }
       
       if ( (/^Job Id: / or eof) and $user){
-         $user = "zzzzz*\e[0;46m${user}\e[0m" if ($user eq $ENV{USER});
+         if ($sWebUser){
+            $user = "aaaaa*${user}" if ($user eq $sCurrentUser);
+         }
+         else{
+            $user = "zzzzz*\e[0;46m${user}\e[0m" if ($user eq $sCurrentUser);
+         }
          my ($rescpus,$resgpus) = (0,0,0);
          
          # First try to obtain the number of CPUs and GPUs from the resource list, if available
@@ -151,7 +163,12 @@ else{
       s/[\n\r]+$//;
       my ($id,$job_name,$user,$time_elapsed,$status,$queue) = split /\s+/, $_, -1;
       if ($queue){
-         $user = "zzzzz*\e[0;46m${user}\e[0m" if ($user eq $ENV{USER});
+         if ($sWebUser){
+            $user = "aaaaa*${user}" if ($user eq $sCurrentUser);
+         }
+         else{
+            $user = "zzzzz*\e[0;46m${user}\e[0m" if ($user eq $sCurrentUser);
+         }
          $hUserStats{$user}{$queue}{$status}++;
          $hQueueStats{$queue}{$status}++;
          $hTotalStats{$status}++;
@@ -180,6 +197,11 @@ foreach my $user (sort(keys(%hUserStats))) {
          my $formatted = $user;
          $formatted =~ s/^zzzzz\*//;
          print sprintf("%-23s %-14s", $formatted, $queue);
+      }
+      elsif ($user =~ /^aaaaa\*/){
+         my $formatted = $user;
+         $formatted =~ s/^aaaaa\*//;
+         print sprintf("%-12s %-14s", $formatted, $queue);
       }
       else{
          print sprintf("%-12s %-14s", $user, $queue);

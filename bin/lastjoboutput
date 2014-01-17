@@ -14,9 +14,11 @@ $ENV{SJOB_PBS_OUTPUT}  ||= "$ENV{HOME}/pbs-output";    # Folder with pbs output 
 my $sHelp       = 0;
 my $nFileCount  = 1;
 my $nSortByID   = 0;
+my $sAltPath    = "";
 GetOptions("help!"  => \$sHelp,
            "i!"     => \$nSortByID,
-           "n:i"    => \$nFileCount);
+           "n:i"    => \$nFileCount,
+           "p:s"    => \$sAltPath);
            
 # PRINT HELP
 my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
@@ -30,6 +32,8 @@ if ($sHelp) {
     Options:
     -n <integer>
       Show output of the last n files, instead of just the last one
+    -p <string>
+      Specify an alternative path to the job output folder
     -i
       Use job ID rather than file modification time to select most recent jobs
     -help
@@ -40,9 +44,12 @@ HELP
 
 # START
 
+# Set output path
+my $sJobOutputPath = $sAltPath ? $sAltPath : $ENV{SJOB_PBS_OUTPUT};
+
 # Sort the output files by job ID or modification date
-opendir my($dir), $ENV{SJOB_PBS_OUTPUT} or die "Can't open $ENV{SJOB_PBS_OUTPUT} : $!\n";
-my @asFiles = grep { -f "$ENV{SJOB_PBS_OUTPUT}/$_" } readdir $dir;
+opendir my($dir), $sJobOutputPath or die "Can't open $sJobOutputPath : $!\n";
+my @asFiles = grep { -f "$sJobOutputPath/$_" } readdir $dir;
 if ($nSortByID){
    my @anJobIDs = @asFiles;
    for my $nID (@anJobIDs){
@@ -53,7 +60,7 @@ if ($nSortByID){
    @asFiles = @asFiles[@anSortOrder];
 }
 else{
-   @asFiles = sort { eval('-M "$ENV{SJOB_PBS_OUTPUT}/$a" <=> -M "$ENV{SJOB_PBS_OUTPUT}/$b"') } @asFiles;
+   @asFiles = sort { eval('-M "$sJobOutputPath/$a" <=> -M "$sJobOutputPath/$b"') } @asFiles;
 }
 
 
@@ -62,10 +69,10 @@ else{
 $nFileCount = scalar(@asFiles) if (scalar(@asFiles)<$nFileCount);
 die "No job output files found\n" unless($nFileCount);
 for (my $i=$nFileCount-1; $i>=0; $i--){
-   my $time = localtime((stat("$ENV{SJOB_PBS_OUTPUT}/$asFiles[$i]"))[9]);
+   my $time = localtime((stat("$sJobOutputPath/$asFiles[$i]"))[9]);
    print "\n## $time #################################################################\n";
    print "==> $asFiles[$i]\n";
-   open OUT, "$ENV{SJOB_PBS_OUTPUT}/$asFiles[$i]" or die "Can't open $ENV{SJOB_PBS_OUTPUT}/$asFiles[$i]: $!\n";
+   open OUT, "$sJobOutputPath/$asFiles[$i]" or die "Can't open $sJobOutputPath/$asFiles[$i]: $!\n";
    while (<OUT>){print;}
    close OUT;
    print "\n"
