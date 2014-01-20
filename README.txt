@@ -36,10 +36,16 @@ available by running each script with the -h argument.
    the TMPSHMDIR environment variable and it will be cleared automatically upon
    completion of the job, ensuring that no files are left behind.
 
-4. Optionally, you can copy the content of the 'www' folder to your minerva
-   web folder (~/www). This will allow you to check job/cpu/node status through
-   a web browser on your computer/phone/tablet. You will need to set the correct
-   path to your minerva-queue repository bin folder in the 'config.php' file.
+4. Optionally, you can symlink the content of the 'www' folder to your minerva
+   web folder (~/www), for example:
+
+   ln -S /path/to/minerva-queue/www ~/www/jobs
+
+   This will allow you to check job/cpu/node status through a web browser on 
+   your computer/phone/tablet, using the url https://<username>.u.hpc.mssm.edu/jobs
+   Note that you will need to set the correct path to your minerva-queue repository 
+   bin folder by copying the content of the file 'config.sample.php' to 'config.php'
+   and editing the path.
 
 Be sure to periodically run 'git pull' in the minerva-queue directory as the
 code is updated frequently to stay up to date with the latest queue changes
