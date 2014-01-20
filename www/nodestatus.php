@@ -40,11 +40,12 @@
 <!--Content-->
 <div class="container">
    <?php
+   include 'config.php';
    $userName = str_replace('.u.hpc.mssm.edu', '', $_SERVER['SERVER_NAME']);
    echo "<a href=\"javascript:window.location.reload()\">Node status on: &nbsp; " . strftime('%c') . "</a>";
    echo "<pre>";
    if (preg_match('/([a-z]|[A-Z])+\d+/',$userName)){
-      system("/hpc/users/$userName/opt/minerva-queue/bin/nodestatus");
+      system("$minerva_queue_bin/nodestatus");
    }
    else{
       echo "Username not formatted correctly\n";

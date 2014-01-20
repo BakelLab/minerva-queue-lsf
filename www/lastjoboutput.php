@@ -40,11 +40,12 @@
 <!--Content-->
 <div class="container">
    <?php
+   include 'config.php';
    $userName = str_replace('.u.hpc.mssm.edu', '', $_SERVER['SERVER_NAME']);
    echo "<a href=\"javascript:window.location.reload()\">Last job output on: &nbsp; " . strftime('%c') . "</a>";
    echo "<pre>";
    if (preg_match('/([a-z]|[A-Z])+\d+/',$userName)){
-      system("/hpc/users/$userName/opt/minerva-queue/bin/lastjoboutput -p /hpc/users/$userName/pbs-output -n 3");
+      system("$minerva_queue_bin/lastjoboutput -p /hpc/users/$userName/pbs-output -n 3");
    }
    else{
       echo "Username not formatted correctly\n";
