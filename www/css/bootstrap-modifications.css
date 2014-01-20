@@ -1,0 +1,78 @@
+body {
+   margin: 0;
+   margin-top: 30px;
+   padding-top: 40px;
+}
+
+.page-header {
+   margin: 0 0 20px;
+}
+
+.jumbotron {
+  padding: 10px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  font-weight: 200;
+  line-height: 2.1428571435;
+  color: inherit;
+  background-color: #eeeeee;
+  min-height: 230px;
+}
+
+@media screen and (min-width: 768px) {
+  .jumbotron {
+    padding-top: 5px;
+    padding-bottom: 10px;
+  }
+  .container .jumbotron {
+    padding-right: 30px;
+    padding-left: 30px;
+  }
+  .jumbotron h1 {
+    font-size: 63px;
+  }
+}
+
+.navbar{
+  font-size: 14px;
+}
+
+.publist{
+   margin-bottom: 10px;
+}
+
+h4{
+   font-weight: bold;
+   font-size: 16px;
+}
+
+.pad-image-right{
+   margin-right:20px;
+}
+
+.pad-image-bottom{
+   margin-bottom:20px;
+}
+
+.pad-image-left{
+   margin-left:20px;
+}
+
+.pad-image-bottom{
+   margin-bottom:20px;
+}
+
+.mainpage-panel{
+   min-height: 120px;
+}
+
+.people-photos{
+   width: 200px;
+}
+
+pre {
+  overflow: auto;
+  word-wrap: normal;
+  white-space: pre;
+   font-size: 10px;
+}
