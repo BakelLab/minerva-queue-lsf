@@ -60,7 +60,7 @@ if ($nSortByID){
    @asFiles = @asFiles[@anSortOrder];
 }
 else{
-   @asFiles = sort { eval('-M "$sJobOutputPath/$a" <=> -M "$sJobOutputPath/$b"') } @asFiles;
+   @asFiles = sort { -M "$sJobOutputPath/$a" <=> -M "$sJobOutputPath/$b" } @asFiles;
 }
 
 
