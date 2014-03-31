@@ -9,7 +9,7 @@ use warnings;
 use Getopt::Long;
 
 # GLOBALS
-$ENV{SJOB_PBS_OUTPUT}  ||= "$ENV{HOME}/pbs-output";    # Folder with pbs output files
+$ENV{SJOB_OUTPUT}  ||= "$ENV{HOME}/pbs-output";    # Folder with pbs output files
 
 # ARGUMENTS
 my $sHelp         = 0;
@@ -62,12 +62,12 @@ HELP
 ##########
 
 # Fail gracefully if the log folders don't exist
-die "Error: The job output folder does not exist\n" unless (-d $ENV{SJOB_PBS_OUTPUT});
+die "Error: The job output folder does not exist\n" unless (-d $ENV{SJOB_OUTPUT});
 
 # Sort the output files by modification date
-opendir my($dir), $ENV{SJOB_PBS_OUTPUT} or die "Can't open $ENV{SJOB_PBS_OUTPUT} : $!\n";
-my @asFiles = grep { -f "$ENV{SJOB_PBS_OUTPUT}/$_" } readdir $dir;
-@asFiles    = sort { eval('-M "$ENV{SJOB_PBS_OUTPUT}/$a" <=> -M "$ENV{SJOB_PBS_OUTPUT}/$b"') } @asFiles;
+opendir my($dir), $ENV{SJOB_OUTPUT} or die "Can't open $ENV{SJOB_OUTPUT} : $!\n";
+my @asFiles = grep { -f "$ENV{SJOB_OUTPUT}/$_" } readdir $dir;
+@asFiles    = sort { eval('-M "$ENV{SJOB_OUTPUT}/$a" <=> -M "$ENV{SJOB_OUTPUT}/$b"') } @asFiles;
 my $nTotalJobOutputFiles = scalar(@asFiles);
 
 # Filter on prefix
@@ -100,7 +100,7 @@ if($nFileCount == 0){
 # Process exit status
 my @asErrors;
 my @asMissing;
-my $rhExitStatus = parse_exitstatus($ENV{SJOB_PBS_OUTPUT});
+my $rhExitStatus = parse_exitstatus($ENV{SJOB_OUTPUT});
 for (my $i=$nFileCount-1; $i>=0; $i--){
    if (exists $rhExitStatus->{$asFiles[$i]} ){
       push @asErrors, $asFiles[$i] unless($rhExitStatus->{$asFiles[$i]} =~ /^0 /);
@@ -116,7 +116,7 @@ if ($flRemove){
       my $nCount = scalar(@asErrors) + scalar(@asMissing);
       my $sCount = $nCount==1 ? "1 job" : "$nCount jobs";
       foreach my $sJob (@asErrors, @asMissing){
-         unlink glob "$ENV{SJOB_PBS_OUTPUT}/$sJob";
+         unlink glob "$ENV{SJOB_OUTPUT}/$sJob";
       }
       print "\nRemoved output of $sCount with non-zero or missing exit status\n\n";
    }
@@ -144,14 +144,14 @@ else{
    }
    else{
       if ($nFileCount == scalar($nTotalJobOutputFiles)){
-         print "\nAll $nFileCount jobs with output in $ENV{SJOB_PBS_OUTPUT} exited normally\n\n";
+         print "\nAll $nFileCount jobs with output in $ENV{SJOB_OUTPUT} exited normally\n\n";
       }
       else{
          if ($nFileCount == 1){
-            print "\nThe last job with output in $ENV{SJOB_PBS_OUTPUT} exited normally\n\n";
+            print "\nThe last job with output in $ENV{SJOB_OUTPUT} exited normally\n\n";
          }
          else{
-            print "\nThe last $nFileCount jobs with output in $ENV{SJOB_PBS_OUTPUT} exited normally\n\n";
+            print "\nThe last $nFileCount jobs with output in $ENV{SJOB_OUTPUT} exited normally\n\n";
          }
       }
    }
@@ -191,14 +191,14 @@ sub print_missing {
    print "\n-------------------------------------------------------\n";
    print "| No exit information found in these job output files |\n";
    print "-------------------------------------------------------\n";
-   my $sRelPath = $ENV{SJOB_PBS_OUTPUT};
+   my $sRelPath = $ENV{SJOB_OUTPUT};
    $sRelPath =~ s/^$ENV{HOME}/~/;
 
    # Process missing
    foreach my $sJobFile (@asArray){
       if ($flVerbose){
          print "  \e[1;31m$sRelPath/$sJobFile\e[0m\n";
-         my $sJobOutput = join("/", $ENV{SJOB_PBS_OUTPUT}, $sJobFile);
+         my $sJobOutput = join("/", $ENV{SJOB_OUTPUT}, $sJobFile);
          open OUT, $sJobOutput or die "Can't open $sJobOutput: $!\n";
          while (<OUT>){print "     $_";}
          close OUT;
@@ -218,14 +218,14 @@ sub print_errors {
    print "\n-------------------------------------------------------\n";
    print "| The following jobs failed with non-zero exit status |\n";
    print "-------------------------------------------------------\n";
-   my $sRelPath = $ENV{SJOB_PBS_OUTPUT};
+   my $sRelPath = $ENV{SJOB_OUTPUT};
    $sRelPath =~ s/^$ENV{HOME}/~/;
 
    # Process errors
    foreach my $sJobFile (@$raErrors){
       if ($flVerbose){
          print "  \e[1;31m$sRelPath/$sJobFile ==> $rhExitStatus->{$sJobFile}\e[0m\n";
-         my $sJobOutput = join("/", $ENV{SJOB_PBS_OUTPUT}, $sJobFile);
+         my $sJobOutput = join("/", $ENV{SJOB_OUTPUT}, $sJobFile);
          open OUT, $sJobOutput or die "Can't open $sJobOutput: $!\n";
          while (<OUT>){print "     $_";}
          close OUT;
@@ -233,7 +233,7 @@ sub print_errors {
       }
       elsif ($nHead){
          print "  \e[1;31m$sRelPath/$sJobFile ==> $rhExitStatus->{$sJobFile}\e[0m\n";
-         my $sJobOutput = join("/", $ENV{SJOB_PBS_OUTPUT}, $sJobFile);
+         my $sJobOutput = join("/", $ENV{SJOB_OUTPUT}, $sJobFile);
          open OUT, "head -n $nHead $sJobOutput|" or die "Can't open $sJobOutput: $!\n";
          while (<OUT>){print "     $_";}
          close OUT;
@@ -241,7 +241,7 @@ sub print_errors {
       }
       elsif ($nTail){
          print "  \e[1;31m$sRelPath/$sJobFile ==> $rhExitStatus->{$sJobFile}\e[0m\n";
-         my $sJobOutput = join("/", $ENV{SJOB_PBS_OUTPUT}, $sJobFile);
+         my $sJobOutput = join("/", $ENV{SJOB_OUTPUT}, $sJobFile);
          open OUT, "tail -n $nTail $sJobOutput|" or die "Can't open $sJobOutput: $!\n";
          while (<OUT>){print "     $_";}
          close OUT;

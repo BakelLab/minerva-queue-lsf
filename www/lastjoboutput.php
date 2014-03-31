@@ -29,8 +29,6 @@
       <div class="navbar-collapse collapse">
          <ul class="nav navbar-nav">
             <li><a href="index.php">Jobstatus</a></li>
-            <li><a href="procstatus.php">Procstatus</a></li>
-            <li><a href="nodestatus.php">Nodestatus</a></li>
             <li class="active"><a href="lastjoboutput.php">Lastjoboutput</a></li>
          </ul>
       </div>

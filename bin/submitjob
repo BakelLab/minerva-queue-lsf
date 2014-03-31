@@ -4,14 +4,14 @@
 # Harm van Bakel <hvbakel@gmail.com>
 
 # GLOBALS
-$ENV{SJOB_PBS_OUTPUT} ||= "$ENV{HOME}/pbs-output";   # Folder with pbs output files
-$ENV{SJOB_CPUS}       ||= 1;                         # Default number of CPUs per node
-$ENV{SJOB_CPUMEM}     ||= 3.8;                       # Default memory allocation per CPU in Gb
-$ENV{SJOB_WALLTIME}   ||= 24;                        # Default walltime in hours
-$ENV{SJOB_NODES}      ||= 1;                         # Default number of nodes
-$ENV{SJOB_DEFALLOC}   ||= '';                        # Default allocation
-$ENV{QSUB}            ||= 'qsub';                    # Location of qsub binary
-$ENV{TEMPDIR}         ||= "/tmp";                    # Location of temp dir
+$ENV{SJOB_OUTPUT} ||= "$ENV{HOME}/lsf-output";   # Folder with lsf output files
+$ENV{SJOB_CPUS}        ||= 1;                         # Default number of CPUs per node
+$ENV{SJOB_CPUMEM}      ||= 2.5;                       # Default memory allocation per CPU in Gb
+$ENV{SJOB_WALLTIME}    ||= 24;                        # Default walltime in hours
+$ENV{SJOB_NODES}       ||= 1;                         # Default number of nodes
+$ENV{SJOB_DEFALLOC}    ||= '';                        # Default allocation
+$ENV{BSUB}             ||= 'bsub';                    # Location of bsub binary
+$ENV{TEMPDIR}          ||= "/tmp";                    # Location of temp dir
 $SIG{'INT'}=$SIG{'HUP'}=$SIG{'ABRT'}=$SIG{'QUIT'}=$SIG{'TRAP'}=$SIG{'STOP'}=\&INTERRUPT;
 
 # MODULES
@@ -45,30 +45,26 @@ if ( (@ARGV<1) or ($ARGV[0] eq '-h') ) {
     -c -cpu <integer>
        The number of CPUs required per node. Default: $ENV{SJOB_CPUS}
     -m -mem <integer>
-       The maximum amount of memory used by the job in Gb. Default: $ENV{SJOB_CPUMEM} * (CPUs in job)
+       The maximum amount of memory used by each process in Gb. Default: $ENV{SJOB_CPUMEM} * (CPUs in job)
     -n -nodes <integer>
        The number of nodes required. Default: $ENV{SJOB_NODES}
     -q -queue <string>
        Target queue. Default: autoselect best queue
-    -A -allocation <string>
-       Allocation to use for this job
-    -p -property <string>
-       Restrict job to nodes with specified properties
-    -W -additional <string>
-       List additional qsub attributes
+    -P -project <string>
+       Project allocation to use for this job
     -s -sem <string>
        Optional name of a file to append job IDs to
-    -k -checkpoint
-       Allow the job to be checkpointed
+    -k -checkpoint <string>
+       Makes a job checkpointable and specifies the checkpoint directory.
 
-   Job STDERR will be merged with STDOUT and redirected to $ENV{SJOB_PBS_OUTPUT}
+   Job STDERR will be merged with STDOUT and redirected to $ENV{SJOB_OUTPUT}
    Any job exceeding the requested run time and memory limits will be killed automatically.
     
 HELP
 }
 
 # Set up job output and TMP directories
-unless (-e $ENV{SJOB_PBS_OUTPUT}) { mkdir($ENV{SJOB_PBS_OUTPUT}) or die "Could not create '$ENV{SJOB_PBS_OUTPUT}' for pbs job output: $!\n"};
+unless (-e $ENV{SJOB_OUTPUT}) { mkdir($ENV{SJOB_OUTPUT}) or die "Could not create '$ENV{SJOB_OUTPUT}' for lsf job output: $!\n"};
 
 # Copy default settings
 my $nTotalMem     = -1;
@@ -79,29 +75,23 @@ my $sAllocation   = $ENV{SJOB_DEFALLOC};
 
 # Check submitjob arguments
 my $flCheckForArgs = 1;
-my $sProperty      = '';
-my $sWalltime      = "$nReqTime:00:00";
+my $sWalltime      = "$nReqTime:00";
 my $sSemaphore     = "";
-my $sAddAtrib      = "";
 my $sQueue         = "";
+my $sCheckpoint    = "";
 my $flDebug        = 0;
-my $flCheckpoint   = 0;
 my $flSelfSched    = 0;
 while($flCheckForArgs){
-   if ($ARGV[0] =~ /^(\d+)\.*\d*$/){              # CPU time
+   if ($ARGV[0] =~ /^(\d+)\.*\d*$/){
       $nReqTime = shift @ARGV;
       my $nDecimal = $nReqTime - int($nReqTime);
       if ($nDecimal){
          my $nMin = int($nDecimal*60)+1;
-         $sWalltime = "$1:$nMin:00";
+         $sWalltime = "$1:$nMin";
       }
       else{
-         $sWalltime = "$1:00:00";
+         $sWalltime = "$1:00";
       }
-   }
-   elsif($ARGV[0] =~ /(^-p)|(^--property)|(^-property)/){
-      shift @ARGV;
-      $sProperty = shift @ARGV;
    }
    elsif($ARGV[0] =~ /(^-m)|(^--mem)|(^-mem)/){
       shift @ARGV;
@@ -122,10 +112,6 @@ while($flCheckForArgs){
       shift @ARGV;
       $sSemaphore = shift @ARGV;
    }
-   elsif($ARGV[0] =~ /(^-W)|(^--additional)|(^-additional)/){
-      shift @ARGV;
-      $sAddAtrib = shift @ARGV;
-   }
    elsif($ARGV[0] =~ /^--debug/){
       shift @ARGV;
       $flDebug = 1;
@@ -136,9 +122,9 @@ while($flCheckForArgs){
    }
    elsif($ARGV[0] =~ /(^-k)|(^--checkpoint)|(^-checkpoint)/){
        shift @ARGV;
-       $flCheckpoint = 1;
+       $sCheckpoint = shift @ARGV;
    }
-   elsif($ARGV[0] =~ /(^-A)|(^--allocation)|(^-allocation)/){
+   elsif($ARGV[0] =~ /(^-P)|(^--project)|(^-project)|(^-A)|(^--allocation)|(^-allocation)/){
        shift @ARGV;
        $sAllocation = shift @ARGV;
    }
@@ -151,57 +137,16 @@ while($flCheckForArgs){
    }
 }
 
-# Set up default memory allocation based on number of requested CPUs
-if ($nTotalMem < 0){
-   $nTotalMem = $nCpus * $ENV{SJOB_CPUMEM};
-}
-
-# Route jobs if no queue was specified
-unless ($sQueue){
-   if($nReqTime <= 2){
-      $sQueue = "express";
-   }
-   elsif ($nCpus >0 and $nCpus < 32){
-      $sQueue = "small";
-   }
-   elsif ($nCpus >=32 and $nCpus < 2048){
-      $sQueue    = "medium";
-      $nTotalMem = 0;
-   }
-   elsif ($nCpus >=2048){
-      $sQueue    = "large";
-      $nTotalMem = 0;
-   }
-   else{
-      die "Error: None of the queues has the requested resources for this job\n";
-   }
-}
-
-# Modify queue name if we're not running in an allocation
-unless ($sAllocation){
-   $sQueue = $sQueue . "_24hr" unless ($sQueue =~ /_24hr$/ or $sQueue =~ /intel/ or $sQueue =~ /express/);
-}
-
-# Set the job resource list
-my @asResources;
-my $sTotalMem   = join('', int(1024*$nTotalMem), 'M');
-my $nNcpus = $nNodes * $nCpus;
-push @asResources, "walltime=$sWalltime" if ($sWalltime);
-push @asResources, "mem=$sTotalMem"      if ($nTotalMem);
-push @asResources, "prologue=$ENV{HOME}/.torque.prologue.sh" if (-e "$ENV{HOME}/.torque.prologue.sh");
-push @asResources, "epilogue=$ENV{HOME}/.torque.epilogue.sh" if (-e "$ENV{HOME}/.torque.epilogue.sh");
-if ($sProperty){
-   push @asResources, "nodes=$nNodes:$sProperty:ppn=$nCpus";
-}
-else{
-   push @asResources, "nodes=$nNodes:ppn=$nCpus";
-}
-my $sResources  = join(',', @asResources);
-my $sPbsAttrib  = $sAddAtrib    ? "\n#PBS -W $sAddAtrib" : "";
-my $sPbsQueue   = $sQueue       ? "\n#PBS -q $sQueue"  : "";
-my $sPbsChkpt   = $flCheckpoint ? "\n#PBS -c enabled" : "";
-my $sPbsAlloc   = $sAllocation  ? "\n#PBS -A $sAllocation" : "";
-my $sPbsErrPath = $flCheckpoint ? "\n#PBS -e localhost:$ENV{SJOB_PBS_OUTPUT}": "";
+# Set the job resources
+$sQueue         = "scavenger" unless ($sQueue);
+$nTotalMem      = $nCpus * $ENV{SJOB_CPUMEM} if ($nTotalMem < 0);
+my $nNcpus      = $nNodes * $nCpus;
+my $sTotalMem   = int(1024*$nTotalMem);
+my $sResSpan    = $nNodes       ? "\n#BSUB -R span[ptile=$nCpus]"  : "";
+my $sResMem     = $nTotalMem    ? "\n#BSUB -R rusage[mem=$sTotalMem]"  : "";
+my $sLsfQueue   = $sQueue       ? "\n#BSUB -q $sQueue"  : "";
+my $sLsfAlloc   = $sAllocation  ? "\n#BSUB -P $sAllocation": "";
+my $sLsfCheckpt = $sCheckpoint  ? "\n#BSUB -k $sCheckpoint": "";
 
 # Format the job name
 my $sJobName = $ARGV[0];
@@ -209,7 +154,7 @@ $sJobName    =~ s/^ +//;  # Remove leading spaces
 $sJobName    =~ s/ .*$//; # Remove anything following a space
 $sJobName    =~ s/.*\///; # Remove the path before any command
 $sJobName    =~ s/\&//;   # Remove any ampersands
-$sJobName    =~ s/^\d+//; # Remove any leading digits, otherwise qsub will throw an error
+$sJobName    =~ s/^\d+//; # Remove any leading digits, otherwise bsub will throw an error
 $sJobName    =  substr($sJobName,0,14); # Make sure job name does not exceed max length
 
 # Set up the job command depending on whether this is a self-scheduling run or an inline-command submission
@@ -218,7 +163,7 @@ if ($flSelfSched){
    die "Error: the 'selfsched' command only takes one argument as input\n" unless (@ARGV == 1);
    die "Error: the selfsched input file '$ARGV[0]' does not exist\n" unless (-e $ARGV[0]);
    $sJobCmd  = "module load selfsched\n";
-   $sJobCmd .= "export fstatus=$sJobName.`echo \$PBS_JOBID | awk -F. '{print \$1}'`.selfsched.status\n";
+   $sJobCmd .= "export fstatus=$sJobName.`echo \$BSUB_JOBID | awk -F. '{print \$1}'`.selfsched.status\n";
    $sJobCmd .= "mpirun -np $nNcpus selfsched < $ARGV[0]";
    $sJobFmt  = "mpirun -np $nNcpus selfsched < $ARGV[0]";
 }
@@ -244,7 +189,7 @@ else{
       }
    }
    
-   # Join arguments and optionally route through cr_run for checkpointing
+   # Join arguments
    $sJobCmd =  join(' ', @ARGV);
    $sJobFmt =  $sJobCmd;
    $sJobFmt =~ s/\$/\\\$/g;  # Escape $, otherwise literal variables will be subsituted during 'echo'
@@ -255,25 +200,21 @@ else{
 my $sCwd     =  getcwd;
 my @asPath   =  split(/\//, $sCwd);
 my $sExecDir =  pop @asPath;
-my $sJoinOut =  $flCheckpoint ? 'n' : 'oe';
 my ($fhTmpOut, $sTmpOut) = tempfile('submitjob-XXXXX', DIR=>$ENV{TEMPDIR}, UNLINK=>1);
 print $fhTmpOut <<SUBMIT;
 #!/bin/bash
-#PBS -S /bin/bash
-#PBS -o localhost:$ENV{SJOB_PBS_OUTPUT}
-#PBS -j $sJoinOut
-#PBS -l $sResources
-#PBS -m a
-#PBS -r n
-#PBS -V
-#PBS -N $sJobName$sPbsAttrib$sPbsQueue$sPbsChkpt$sPbsAlloc$sPbsErrPath
+#BSUB -oo $ENV{SJOB_OUTPUT}/%J.OU
+#BSUB -n $nNcpus
+#BSUB -W $sWalltime
+#BSUB -E "mkdir -p -m 700 /dev/shm/\$LSB_JOBID"
+#BSUB -Ep "rm -rf /dev/shm/\$LSB_JOBID"
+#BSUB -J $sJobName$sLsfQueue$sLsfAlloc$sResSpan$sResMem$sLsfCheckpt
 cd $sCwd
-export PBS_NCPU=$nCpus
 echo -E '==> Run command    :' "$sJobFmt"
 echo    '==> Execution host :' `hostname`
-if [ -e /dev/shm/\$PBS_JOBID ]
+if [ -e /dev/shm/\$LSB_JOBID ]
 then
-   export TMPSHMDIR=/dev/shm/\$PBS_JOBID
+   export TMPSHMDIR=/dev/shm/\$LSB_JOBID
 else
    export TMPSHMDIR=\$TMPDIR
 fi
@@ -283,7 +224,7 @@ close $fhTmpOut;
 
 # Submit job or print job submission script, depending on whether we're running in debug mode
 if ($flDebug){
-   open DEBUG, $sTmpOut or die "Error: can't open temporary qsub file\n";
+   open DEBUG, $sTmpOut or die "Error: can't open temporary bsub file\n";
    while (<DEBUG>){
       print;
    }
@@ -294,18 +235,18 @@ else{
    my $sJobID = "";
    my $flSubmitted = 0;
    while(not($flSubmitted)){
-      open QSUB, "$ENV{QSUB} $sTmpOut|" or die "Error: can't execute qsub command: $!\n";
-      while (<QSUB>){
+      open BSUB, "$ENV{BSUB} < $sTmpOut|" or die "Error: can't execute bsub command: $!\n";
+      while (<BSUB>){
          next if (/^\s*$/);
          next if (/^ *#/);
          s/[\n\r]+$//;
          $sJobID = $_;
          last;
       }
-      close QSUB;
+      close BSUB;
       
       # Make sure job was successfully submitted by checking if we got a jobID back
-      if ($sJobID =~ /^\d+\./){
+      if ($sJobID =~ /^Job \<\d+\>/){
          $flSubmitted = 1;
       }
       else{
@@ -325,7 +266,7 @@ else{
       warn "$sJobID written to $sSemaphore\n";
    }
    else{
-      warn "Job submitted: $sJobID\n";
+      warn "$sJobID\n";
    }
 }
 

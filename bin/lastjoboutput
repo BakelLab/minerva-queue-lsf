@@ -8,7 +8,7 @@ use warnings;
 use Getopt::Long;
 
 # GLOBALS
-$ENV{SJOB_PBS_OUTPUT}  ||= "$ENV{HOME}/pbs-output";    # Folder with pbs output files
+$ENV{SJOB_OUTPUT}  ||= "$ENV{HOME}/lsf-output";    # Folder with pbs output files
 
 # ARGUMENTS
 my $sHelp       = 0;
@@ -45,7 +45,7 @@ HELP
 # START
 
 # Set output path
-my $sJobOutputPath = $sAltPath ? $sAltPath : $ENV{SJOB_PBS_OUTPUT};
+my $sJobOutputPath = $sAltPath ? $sAltPath : $ENV{SJOB_OUTPUT};
 
 # Sort the output files by job ID or modification date
 opendir my($dir), $sJobOutputPath or die "Can't open $sJobOutputPath : $!\n";
