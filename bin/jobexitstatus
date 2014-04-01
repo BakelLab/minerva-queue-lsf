@@ -9,7 +9,7 @@ use warnings;
 use Getopt::Long;
 
 # GLOBALS
-$ENV{SJOB_OUTPUT}  ||= "$ENV{HOME}/pbs-output";    # Folder with pbs output files
+$ENV{SJOB_OUTPUT}  ||= "$ENV{HOME}/lsf-output";    # Folder with pbs output files
 
 # ARGUMENTS
 my $sHelp         = 0;
@@ -103,7 +103,7 @@ my @asMissing;
 my $rhExitStatus = parse_exitstatus($ENV{SJOB_OUTPUT});
 for (my $i=$nFileCount-1; $i>=0; $i--){
    if (exists $rhExitStatus->{$asFiles[$i]} ){
-      push @asErrors, $asFiles[$i] unless($rhExitStatus->{$asFiles[$i]} =~ /^0 /);
+      push @asErrors, $asFiles[$i] unless($rhExitStatus->{$asFiles[$i]} =~ /^0/);
    }
    else{
       push @asMissing, $asFiles[$i];
@@ -169,13 +169,17 @@ sub parse_exitstatus {
    my ($sFolder) = @_;
    my %hExitStatus;
    my ($sFileName, $sStatus) = ("","");
-   open JOB, "tail -v -c 100 $sFolder/* |" or die "Error: can't parse exit status: $!'\n";
+   open JOB, "head -n 100 $sFolder/* |" or die "Error: can't parse exit status: $!'\n";
    while (<JOB>){
       next if /^\s*$/;
       $sFileName   = $1 if (/\=\=\> (.*) \<\=\=/);
       $sFileName   =~ s/$sFolder\/*//;
-      if (/\=\=\> Exit status    \: (.*)$/){
+      if (/^Exited with exit code (.*)\.$/){
          $hExitStatus{$sFileName} = $1 if ($sFileName);
+         $sFileName = "";
+      }
+      if (/^Successfully completed./){
+         $hExitStatus{$sFileName} = "0 (job exited normally)" if ($sFileName);
          $sFileName = "";
       }
    }
