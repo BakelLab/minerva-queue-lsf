@@ -45,7 +45,7 @@ if ( (@ARGV<1) or ($ARGV[0] eq '-h') ) {
     -c -cpu <integer>
        The number of CPUs required per node. Default: $ENV{SJOB_CPUS}
     -m -mem <integer>
-       The maximum amount of memory used by each process in Gb. Default: $ENV{SJOB_CPUMEM} * (CPUs in job)
+       The total amount of memory used by the job in Gb. Default: $ENV{SJOB_CPUMEM} * (No. of CPUs)
     -n -nodes <integer>
        The number of nodes required. Default: $ENV{SJOB_NODES}
     -q -queue <string>
@@ -139,14 +139,13 @@ while($flCheckForArgs){
 
 # Set the job resources
 $sQueue         = "scavenger" unless ($sQueue);
-$nTotalMem      = $nCpus * $ENV{SJOB_CPUMEM} if ($nTotalMem < 0);
 my $nNcpus      = $nNodes * $nCpus;
-my $sTotalMem   = int(1024*$nTotalMem);
-my $sResSpan    = $nNodes       ? "\n#BSUB -R span[ptile=$nCpus]"  : "";
-my $sResMem     = $nTotalMem    ? "\n#BSUB -R rusage[mem=$sTotalMem]"  : "";
-my $sLsfQueue   = $sQueue       ? "\n#BSUB -q $sQueue"  : "";
-my $sLsfAlloc   = $sAllocation  ? "\n#BSUB -P $sAllocation": "";
-my $sLsfCheckpt = $sCheckpoint  ? "\n#BSUB -k $sCheckpoint": "";
+my $nProcMem    = $nTotalMem < 0 ? int($ENV{SJOB_CPUMEM} * 1024) : int(($nTotalMem * 1024) / $nNcpus);
+my $sResSpan    = $nNodes        ? "\n#BSUB -R span[ptile=$nCpus]"  : "";
+my $sResMem     = $nProcMem      ? "\n#BSUB -R rusage[mem=$nProcMem]"  : "";
+my $sLsfQueue   = $sQueue        ? "\n#BSUB -q $sQueue"  : "";
+my $sLsfAlloc   = $sAllocation   ? "\n#BSUB -P $sAllocation": "";
+my $sLsfCheckpt = $sCheckpoint   ? "\n#BSUB -k $sCheckpoint": "";
 
 # Format the job name
 my $sJobName = $ARGV[0];
@@ -155,7 +154,7 @@ $sJobName    =~ s/ .*$//; # Remove anything following a space
 $sJobName    =~ s/.*\///; # Remove the path before any command
 $sJobName    =~ s/\&//;   # Remove any ampersands
 $sJobName    =~ s/^\d+//; # Remove any leading digits, otherwise bsub will throw an error
-$sJobName    =  substr($sJobName,0,14); # Make sure job name does not exceed max length
+$sJobName    =  substr($sJobName,0,12); # Make sure job name does not exceed max length
 
 # Set up the job command depending on whether this is a self-scheduling run or an inline-command submission
 my ($sJobCmd, $sJobFmt) = ("","");
