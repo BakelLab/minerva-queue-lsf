@@ -11,20 +11,13 @@ use Env '@PATH';
 
 # GLOBAL
 $ENV{BJOBS} ||= "bjobs";
-my @asStatusCodes = ('RUN','PEND','PSUSP','USUSP','SSUSP','PROV');
+my @asStatusCodes = ('RUN_CPU', 'RUN','PEND','PSUSP','USUSP','SSUSP','PROV');
 
 # GET PARAMETERS
 my $flHelp       = 0;
-my $flProcInfo   = 0;
-my $flGpuInfo    = 0;
 my $sWebUser     = "";
-my $sServer      = "";
 GetOptions("help!"      => \$flHelp,
-           "cpuinfo!"   => \$flProcInfo,
-           "pcpuinfo!"  => \$flProcInfo,
-           "gpuinfo!"   => \$flGpuInfo,
-           "web:s"      => \$sWebUser,
-           "server:s"   => \$sServer);
+           "web:s"      => \$sWebUser);
 
 # PRINT HELP
 if ($flHelp) {
@@ -35,9 +28,7 @@ if ($flHelp) {
 
    Gives a brief summary of all running and queued jobs.
    
-   Options: 
-    -s -server <string>
-      Show queue information for a different server
+   Options:
     -w --webuser
       Specify user when called from web server
     -h -help
@@ -58,17 +49,16 @@ my $sCurrentUser = $sWebUser ? $sWebUser : $ENV{USER};
 my $flBJOBSExists = grep -x "$_/$ENV{BJOBS}", @PATH;
 die "Error: BJOBS is not installed on this system\n" unless($flBJOBSExists);
 
-# Collect job or CPU count stats
+# Collect job count stats
 my %hUserStats;
 my %hQueueStats;
 my %hTotalStats;
-my $sQueueCmd = $sServer ? join('', $ENV{BJOBS}, ' @',$sServer) : $ENV{BJOBS};
-open BJOBS, "bjobs -X -u all -o 'jobid user stat queue' |" or die "Error: could not run 'BJOBS' to get job status report: $!\n";
+open BJOBS, "bjobs -X -u all -o 'jobid user stat queue slots' |" or die "Error: could not run 'BJOBS' to get job status report: $!\n";
 while (<BJOBS>){
    s/^\s+//;
    next if (/^JOBID/);
    s/[\n\r]+$//;
-   my ($id,$user,$status,$queue) = split /\s+/, $_, -1;
+   my ($id,$user,$status,$queue,$slots) = split /\s+/, $_, -1;
    if ($queue){
       if ($sWebUser){
          $user = "aaaaa*${user}" if ($user eq $sCurrentUser);
@@ -79,6 +69,12 @@ while (<BJOBS>){
       $hUserStats{$user}{$queue}{$status}++;
       $hQueueStats{$queue}{$status}++;
       $hTotalStats{$status}++;
+      
+      if ($slots ne '-'){
+         $hUserStats{$user}{$queue}{RUN_CPU} += $slots;
+         $hQueueStats{$queue}{RUN_CPU} += $slots;
+         $hTotalStats{RUN_CPU} += $slots;
+      }
    }
 }
 close BJOBS;
@@ -92,7 +88,8 @@ foreach my $sStatus (@asStatusCodes){
 # Print header
 my $sHeader = sprintf("%-12s %-14s", 'User', 'Queue');
 foreach my $sStatus (@asJobStatus){
-   $sHeader .= sprintf(" %-8s", $sStatus);
+   my $sp = $sStatus eq 'RUN' ? '| ' : '';
+   $sHeader .= sprintf("$sp %-8s", $sStatus);
 }
 print '=' x length($sHeader) . "\n$sHeader\n" . '-' x length($sHeader) . "\n";
 
@@ -113,11 +110,12 @@ foreach my $user (sort(keys(%hUserStats))) {
          print sprintf("%-12s %-14s", $user, $queue);
       }
       foreach my $status (@asJobStatus){
+         my $sp = $status eq 'RUN' ? '| ' : '';
          if (exists($hUserStats{$user}{$queue}{$status})){
-            print sprintf(" %-8s", $hUserStats{$user}{$queue}{$status});
+            print sprintf("$sp %-8s", $hUserStats{$user}{$queue}{$status});
          }
          else{
-            print sprintf(" %-8s", 0);
+            print sprintf("$sp %-8s", 0);
          }
       }
       print "\n";
@@ -129,11 +127,12 @@ print '-' x length($sHeader) . "\n";
 foreach my $queue (sort(keys(%hQueueStats))) {
    print sprintf("%-12s %-14s", '', $queue);
    foreach my $status (@asJobStatus){
+      my $sp = $status eq 'RUN' ? '| ' : '';
       if (exists($hQueueStats{$queue}{$status})){
-         print sprintf(" %-8s", $hQueueStats{$queue}{$status});
+         print sprintf("$sp %-8s", $hQueueStats{$queue}{$status});
       }
       else{
-         print sprintf(" %-8s", 0);
+         print sprintf("$sp %-8s", 0);
       }
    }
    print "\n";
@@ -143,11 +142,12 @@ foreach my $queue (sort(keys(%hQueueStats))) {
 print " " x 13 . "-" x (length($sHeader)-13) . "\n";
 print sprintf("%-12s %-14s", '', 'totals');
 foreach my $status (@asJobStatus){
+   my $sp = $status eq 'RUN' ? '| ' : '';
    if (exists($hTotalStats{$status})){
-      print sprintf(" %-8s", $hTotalStats{$status});
+      print sprintf("$sp %-8s", $hTotalStats{$status});
    }
    else{
-      print sprintf(" %-8s", 0);
+      print sprintf("$sp %-8s", 0);
    }
 }
 print "\n";
