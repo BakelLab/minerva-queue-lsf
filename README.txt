@@ -88,3 +88,11 @@ jobexitstatus
   Reports a summary of the exit status for all jobs with output in
   ~/lsf-output/ or any other dir specified in the SJOB_OUTPUT environment
   variable. Type 'jobexitstatus -h' for more arguments.
+
+nodestatus
+  Summary representation of node usage. Useful for tailoring jobs to fit 
+  the available CPU slots and monitoring jobs as they run.
+  * denotes allocated CPUs
+  - indicates free CPUs. 
+  / indicates allocated CPUs that are not being used
+  # indicates CPUs that are in use, but have not been allocated.
