@@ -1,0 +1,162 @@
+#!/usr/bin/perl
+
+# 27.08.2010 08:42:27 EDT
+# Harm van Bakel <hvbakel@gmail.com>
+
+# MODULES
+use strict;
+use warnings;
+use Getopt::Long;
+
+# GET PARAMETERS
+my $sHelp       = 0;
+my $flUserOnly  = 0;
+GetOptions("help!"   => \$sHelp,
+           "user!"   => \$flUserOnly);
+
+# PRINT HELP
+if ($sHelp) {
+   my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
+   die <<HELP
+
+   Usage: $sScriptName
+
+   Displays a graphical summary of node occupancy.
+   
+   Options:
+    -u --user
+      Only list information for nodes running your jobs
+    -help
+      This help message
+   
+HELP
+}
+
+
+##########
+## MAIN ##
+##########
+
+# Collect node info from bhosts
+my $sCurrentNode = "";
+my %hNodes;
+my %hFsize  = (node=>8,state=>16,properties=>8,np=>16,loadave=>6,mem=>8,userlist=>5);
+open BHOSTS, "bhosts -w |" or die "Error: Can't run bhosts command: $!\n";
+while (<BHOSTS>){
+   if (/^node/){
+      s/[\n\r]+$//;
+      my ($sHostName, $sState, $sJL, $nMax, $nNjobs, $nRun, $nSsusp, $sUsusp, $sRsv) = split / +/, $_, -1;
+      
+      # Set length of node field
+      $hFsize{node} = length($sHostName) if(length($sHostName) > $hFsize{node});
+      
+      # Host state
+      $hNodes{$sHostName}{state} = $sState;
+      $hFsize{state} = length($sState) if(length($sState) > $hFsize{state});
+      
+      # Host properties
+      my $sProperties = '-';
+      $hNodes{$sHostName}{properties} = $sProperties;
+      $hFsize{properties} = length($sProperties) if(length($sProperties) > $hFsize{properties});
+      
+      # Number of slots/processors in node
+      $hNodes{$sHostName}{np} = $nMax;
+      $hFsize{np} = $nMax+1 if($nMax > $hFsize{np});
+      
+      # Number of reserved slots/processors in node
+      $hNodes{$sHostName}{jobs} = $nNjobs;
+   }
+}
+close BHOSTS;
+
+# Collect load and available memory info from lsload
+open LSLOAD, "lsload |" or die "Error: Can't run lsload command: $!\n";
+while (<LSLOAD>){
+   if (/^node/){
+      s/[\n\r]+$//;
+      my ($sHostName, $sState, $sR15s, $sR1m, $sR15m, $sUt, $sPg, $sLs, $sIt, $sTmp, $sSwp, $sMem) = split / +/, $_, -1;
+      
+      if ($sState eq 'ok'){
+         # Load average
+         $hNodes{$sHostName}{loadave} = $sR1m;
+         $hFsize{loadave} = length($sR1m)+1 if (length($sR1m)+1 > $hFsize{loadave});
+         
+         # Available memory
+         $hNodes{$sHostName}{mem} = $sMem;
+         $hFsize{mem} = length($sMem)+1 if (length($sMem)+1 > $hFsize{mem});
+      }
+   }
+}
+close LSLOAD;
+
+# Get a list of user/node associations from bjobs
+my %hNodeUsers;
+open BJOBS, "bjobs -X -u all -o 'user exec_host' |" or die "Error: Can't run bjobs command: $!\n";
+while (<BJOBS>){
+   next if (/^USER/);
+   s/[\n\r]+$//;
+   my ($sUser, $sHostList) = split / +/, $_, -1;
+   if ($sHostList ne '-'){
+      $sUser = $sUser eq $ENV{USER} ? "\e[0;46m${sUser}\e[0m" : $sUser;
+      my @asHostList = split /\:/, $sHostList;
+      foreach my $sHost (@asHostList){
+         $sHost =~ s/^\d+\*//;
+         $hNodeUsers{$sHost}{$sUser}++;
+      }
+   }
+}
+close BJOBS;
+
+# Assign a list of users to each node
+foreach my $node (keys %hNodeUsers){
+   $hNodes{$node}{userlist} = join(",", sort keys(%{$hNodeUsers{$node}}));
+   $hFsize{userlist} = length($hNodes{$node}{userlist}) if (length($hNodes{$node}{userlist})) > $hFsize{userlist};
+}
+
+# Get total displayed width from individual fields
+my $nTsize  = 0;
+foreach my $sKey (keys %hFsize){
+   $nTsize += $hFsize{$sKey};
+}
+$nTsize += scalar(keys %hFsize);
+
+
+# Print output header and legend
+print "\n-------------------------------------------------------------------------------\n";
+print "| LEGEND  | * Allocated busy | / Allocated idle | # Unallocated busy | - free |\n";
+print "-------------------------------------------------------------------------------\n\n";
+print "=" x $nTsize, "\n";
+printf "%-${hFsize{node}}s %-${hFsize{state}}s %-${hFsize{properties}}s  %-${hFsize{loadave}}s %-${hFsize{mem}}s %-${hFsize{np}}s %-${hFsize{userlist}}s\n", "Node", "State", "Property", "Load", "Avl Mem", "CPU status (see legend)", "Users";
+print "=" x $nTsize, "\n";
+
+# Output the details for each node
+foreach my $sNode (sort keys %hNodes){
+   $hNodes{$sNode}{properties} ||= 'NA';
+   $hNodes{$sNode}{jobs}       ||= 0;
+   $hNodes{$sNode}{mem}        ||= 'NA';
+   $hNodes{$sNode}{loadave}    ||= 'NA';
+   $hNodes{$sNode}{jobs}       ||= 0;
+   $hNodes{$sNode}{np}         ||= 0;
+   $hNodes{$sNode}{state}      ||= 'NA';
+   $hNodes{$sNode}{userlist}   ||= "";
+   
+   my ($nBusyProcs, $nBusyAlctProcs, $nIdleAlctProcs, $nExcesssProcs, $nAvailblProcs) = (0,0,0,0,$hNodes{$sNode}{np});
+   if ($hNodes{$sNode}{jobs}){
+      $nBusyProcs = $hNodes{$sNode}{loadave} ne 'NA' ? int($hNodes{$sNode}{loadave} + 0.5) : $hNodes{$sNode}{jobs};
+      $nBusyProcs = $hNodes{$sNode}{np} if ($nBusyProcs > $hNodes{$sNode}{np});
+      $nBusyAlctProcs = $nBusyProcs <= $hNodes{$sNode}{jobs} ? $nBusyProcs : $hNodes{$sNode}{jobs};
+      $nIdleAlctProcs = $nBusyProcs <= $hNodes{$sNode}{jobs} ? $hNodes{$sNode}{jobs} - $nBusyProcs : 0;
+      $nExcesssProcs  = $nBusyProcs >  $hNodes{$sNode}{jobs} ? $nBusyProcs - $hNodes{$sNode}{jobs} : 0;
+      $nAvailblProcs  = $hNodes{$sNode}{np} - $nBusyAlctProcs - $nIdleAlctProcs - $nExcesssProcs;
+   }
+   my $sProcs = "*" x $nBusyAlctProcs . "/" x $nIdleAlctProcs . "#" x $nExcesssProcs . "-" x $nAvailblProcs;
+   $sProcs    = "" if ($hNodes{$sNode}{state} =~ /unavail/);
+   
+   my $flPrint = 1;
+   if ($flUserOnly){
+      $flPrint = 0 unless($hNodes{$sNode}{userlist} =~ /$ENV{USER}/);
+   }
+   
+   printf "%-${hFsize{node}}s %-${hFsize{state}}s %-${hFsize{properties}}s  %-${hFsize{loadave}}s %-${hFsize{mem}}s %-${hFsize{np}}s %-10s\n", 
+          $sNode, $hNodes{$sNode}{state}, $hNodes{$sNode}{properties}, $hNodes{$sNode}{loadave}, $hNodes{$sNode}{mem}, $sProcs, $hNodes{$sNode}{userlist} if ($flPrint);
+}
