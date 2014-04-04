@@ -145,7 +145,7 @@ my $sResSpan    = $nNodes        ? "\n#BSUB -R span[ptile=$nCpus]"  : "";
 my $sResMem     = $nProcMem      ? "\n#BSUB -R rusage[mem=$nProcMem]"  : "";
 my $sLsfQueue   = $sQueue        ? "\n#BSUB -q $sQueue"  : "";
 my $sLsfAlloc   = $sAllocation   ? "\n#BSUB -P $sAllocation": "";
-my $sLsfCheckpt = $sCheckpoint   ? "\n#BSUB -k $sCheckpoint": "";
+my $sLsfCheckpt = $sCheckpoint   ? "\n#BSUB -k \"$sCheckpoint init=5 60 method=blcr\"": "";
 
 # Format the job name
 my $sJobName = $ARGV[0];
