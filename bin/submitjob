@@ -55,7 +55,7 @@ if ( (@ARGV<1) or ($ARGV[0] eq '-h') ) {
     -s -sem <string>
        Optional name of a file to append job IDs to
     -k -checkpoint <string>
-       Makes a job checkpointable and specifies the checkpoint directory.
+       Automatically checkpoint a job every hour to the checkpoint directory specified here.
     -app <string>
        Specify an application profile. E.g. mpi switch configuration, checkpointing
 
