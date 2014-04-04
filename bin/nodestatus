@@ -54,11 +54,6 @@ while (<BHOSTS>){
       $hNodes{$sHostName}{state} = $sState;
       $hFsize{state} = length($sState) if(length($sState) > $hFsize{state});
       
-      # Host properties
-      my $sProperties = '-';
-      $hNodes{$sHostName}{properties} = $sProperties;
-      $hFsize{properties} = length($sProperties) if(length($sProperties) > $hFsize{properties});
-      
       # Number of slots/processors in node
       $hNodes{$sHostName}{np} = $nMax;
       $hFsize{np} = $nMax+1 if($nMax > $hFsize{np});
@@ -68,6 +63,19 @@ while (<BHOSTS>){
    }
 }
 close BHOSTS;
+
+# Collect node properties from lshosts
+open BHOSTS, "lshosts -w |" or die "Error: Can't run lshosts command: $!\n";
+while (<BHOSTS>){
+   if (/^node/){
+      s/[\n\r]+$//;
+      my ($sHostName, $sType, $sModel, $sCpuf, $sMaxMem, $sMaxSwp, $sServer, $sRes) = split / +/, $_, -1;
+      
+      # Host properties 
+      $hNodes{$sHostName}{properties} = $sModel;
+      $hFsize{properties} = length($sModel) if(length($sModel) > $hFsize{properties});
+   }
+}
 
 # Collect load and available memory info from lsload
 open LSLOAD, "lsload |" or die "Error: Can't run lsload command: $!\n";
