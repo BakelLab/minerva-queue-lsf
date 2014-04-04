@@ -96,3 +96,8 @@ nodestatus
   - indicates free CPUs. 
   / indicates allocated CPUs that are not being used
   # indicates CPUs that are in use, but have not been allocated.
+
+brsvtime
+  Displays the time in hours until the start of the next reservation.
+  Useful to limit your job to the time left before the next
+  maintenance window.
