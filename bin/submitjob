@@ -56,6 +56,8 @@ if ( (@ARGV<1) or ($ARGV[0] eq '-h') ) {
        Optional name of a file to append job IDs to
     -k -checkpoint <string>
        Makes a job checkpointable and specifies the checkpoint directory.
+    -app <string>
+       Specify an application profile. E.g. mpi switch configuration, checkpointing
 
    Job STDERR will be merged with STDOUT and redirected to $ENV{SJOB_OUTPUT}
    Any job exceeding the requested run time and memory limits will be killed automatically.
@@ -81,6 +83,7 @@ my $sQueue         = "";
 my $sCheckpoint    = "";
 my $flDebug        = 0;
 my $flSelfSched    = 0;
+my $sAppProfile    = "";
 while($flCheckForArgs){
    if ($ARGV[0] =~ /^(\d+)\.*\d*$/){
       $nReqTime = shift @ARGV;
@@ -132,6 +135,10 @@ while($flCheckForArgs){
       shift @ARGV;
       $flSelfSched = 1;
    }
+   elsif($ARGV[0] =~ /^-app/){
+       shift @ARGV;
+       $sAppProfile = shift @ARGV;
+   }
    else{
       $flCheckForArgs = 0;
    }
@@ -146,6 +153,7 @@ my $sResMem     = $nProcMem      ? "\n#BSUB -R rusage[mem=$nProcMem]"  : "";
 my $sLsfQueue   = $sQueue        ? "\n#BSUB -q $sQueue"  : "";
 my $sLsfAlloc   = $sAllocation   ? "\n#BSUB -P $sAllocation": "";
 my $sLsfCheckpt = $sCheckpoint   ? "\n#BSUB -k \"$sCheckpoint init=5 60 method=blcr\"": "";
+my $sLsfAppProf = $sAppProfile   ? "\n#BSUB -app $sAppProfile": "";
 
 # Format the job name
 my $sJobName = $ARGV[0];
@@ -207,7 +215,7 @@ print $fhTmpOut <<SUBMIT;
 #BSUB -W $sWalltime
 #BSUB -E "mkdir -p -m 700 /dev/shm/\$LSB_JOBID"
 #BSUB -Ep "rm -rf /dev/shm/\$LSB_JOBID"
-#BSUB -J $sJobName$sLsfQueue$sLsfAlloc$sResSpan$sResMem$sLsfCheckpt
+#BSUB -J $sJobName$sLsfQueue$sLsfAlloc$sResSpan$sResMem$sLsfCheckpt$sLsfAppProf
 cd $sCwd
 echo -E '==> Run command    :' "$sJobFmt"
 echo    '==> Execution host :' `hostname`
