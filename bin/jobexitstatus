@@ -10,6 +10,14 @@ use Getopt::Long;
 
 # GLOBALS
 $ENV{SJOB_OUTPUT}  ||= "$ENV{HOME}/lsf-output";    # Folder with pbs output files
+my %hExitCodes = (1   => "1 (general error, check job output file)",
+                  2   => "2 (misuse of shell builtins)",
+                  126 => "126 (command invoked cannot execute)",
+                  127 => "127 (command not found)",
+                  128 => "128 (invalid argument to 'exit')",
+                  130 => "130 (script terminated by Ctrl+C)",
+                  139 => "139 (Segmentation fault)",
+                  255 => "255 (exit status out of range)");
 
 # ARGUMENTS
 my $sHelp         = 0;
@@ -26,7 +34,7 @@ GetOptions("help!"     => \$sHelp,
            "start:i"   => \$nHead,
            "tail:i"    => \$nTail,
            "remove!"   => \$flRemove);
-           
+
 # PRINT HELP
 my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
 if ($sHelp) {
@@ -182,6 +190,10 @@ sub parse_exitstatus {
          $hExitStatus{$sFileName} = "0 (job exited normally)" if ($sFileName);
          $sFileName = "";
       }
+      if (/^(TERM_\w+): (.*)\.$/){
+         $hExitStatus{$sFileName} = "$1 ($2)" if ($sFileName);
+         $sFileName = "";
+      }
    }
    close JOB;
    return \%hExitStatus;
@@ -227,32 +239,33 @@ sub print_errors {
 
    # Process errors
    foreach my $sJobFile (@$raErrors){
+      my $sExitStatus = exists($hExitCodes{$rhExitStatus->{$sJobFile}}) ? $hExitCodes{$rhExitStatus->{$sJobFile}} : $rhExitStatus->{$sJobFile};
       if ($flVerbose){
-         print "  \e[1;31m$sRelPath/$sJobFile ==> $rhExitStatus->{$sJobFile}\e[0m\n";
+         print "  \e[1;31m$sRelPath/$sJobFile ==> $sExitStatus\e[0m\n";
          my $sJobOutput = join("/", $ENV{SJOB_OUTPUT}, $sJobFile);
          open OUT, $sJobOutput or die "Can't open $sJobOutput: $!\n";
          while (<OUT>){print "     $_";}
          close OUT;
-	 print "\n";
+         print "\n";
       }
       elsif ($nHead){
-         print "  \e[1;31m$sRelPath/$sJobFile ==> $rhExitStatus->{$sJobFile}\e[0m\n";
+         print "  \e[1;31m$sRelPath/$sJobFile ==> $sExitStatus\e[0m\n";
          my $sJobOutput = join("/", $ENV{SJOB_OUTPUT}, $sJobFile);
          open OUT, "head -n $nHead $sJobOutput|" or die "Can't open $sJobOutput: $!\n";
          while (<OUT>){print "     $_";}
          close OUT;
-	 print "\n";
+         print "\n";
       }
       elsif ($nTail){
-         print "  \e[1;31m$sRelPath/$sJobFile ==> $rhExitStatus->{$sJobFile}\e[0m\n";
+         print "  \e[1;31m$sRelPath/$sJobFile ==> $sExitStatus\e[0m\n";
          my $sJobOutput = join("/", $ENV{SJOB_OUTPUT}, $sJobFile);
          open OUT, "tail -n $nTail $sJobOutput|" or die "Can't open $sJobOutput: $!\n";
          while (<OUT>){print "     $_";}
          close OUT;
-	 print "\n";
+         print "\n";
       }
       else{
-         print "  $sRelPath/$sJobFile ==> $rhExitStatus->{$sJobFile}\n";
+         print "  $sRelPath/$sJobFile ==> $sExitStatus\n";
       }
    }
 }
