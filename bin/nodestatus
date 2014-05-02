@@ -59,7 +59,7 @@ while (<BHOSTS>){
       $hFsize{np} = $nMax+1 if($nMax > $hFsize{np});
       
       # Number of reserved slots/processors in node
-      $hNodes{$sHostName}{jobs} = $nNjobs;
+      $hNodes{$sHostName}{jobs} = $nRun;
    }
 }
 close BHOSTS;
