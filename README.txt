@@ -39,24 +39,29 @@ and to add new features.
 
 submitjob
   Wrapper script to simplify job submission. Job STDOUT and STDERR are 
-  combined and sent to ~/pbs-output or any other dir specified in the 
-  SJOB_PBS_OUTPUT environment variable. If you use inline awk/perl/matlab 
+  combined and sent to ~/lsf-output or any other dir specified in the 
+  SJOB_OUTPUT environment variable. If you use inline awk/perl/matlab 
   commands, submitjob will also properly escape these commands so that 
   they will run in the queue. If no destination queue is specified, 
   submitjob will route the job to the best fitting minerva queue.
 
   Examples;
     submitjob 1 -m 12 -c 1  <jobcmd>
-      => Request 1 hour of walltime, 12 Gb of (total) memory and 1 cpu
+      => Request 1 hour of walltime, 12 Gb of (total) memory and 1 cpu on any
+         (AMD or intel) node.
 
     submitjob 24 -m 200 -c 64 <jobcmd>
-      => 24 hrs walltime; 200Gb of memory, 46 CPUs on one node
+      => 24 hrs walltime; 200Gb of memory, 64 CPUs on any one node (AMD/intel)
 
     submitjob 24 -m 500 -c 64 -n 2 <jobcmd>
       => 24hrs walltime; 500Gb of memory (across all nodes), 128 CPUs
          on 2 nodes. This will work if your <jobcmd> is cluster-aware,
          like an openmpi run or parallelized make.
-         
+    
+    submitjob 24 -c 12 -P acc_5 -a mothra <jobcmd>
+      => 24 hrs walltime; 12 cpus on a mothra (intel) node in allocation
+         acc_5.
+
     submitjob 24 -c 64 -m 200 selfsched <cmdfile>
       => Run a series of commands specified in <cmdfile> using the
          selfsched utility. In the case listed here, selfsched will run
@@ -80,8 +85,8 @@ jobstatus
   
 lastjoboutput 
   Will always show the output of the most recently finished job(s). 
-  Assumes that your job output is in ~/pbs-output (the submitjob default), 
-  or any other dir specified in the PBS_OUTPUT environment variable.
+  Assumes that your job output is in ~/lsf-output (the submitjob default), 
+  or any other dir specified in the SJOB_OUTPUT environment variable.
   Type 'lastjoboutput -h' for more arguments.
 
 jobexitstatus
