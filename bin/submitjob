@@ -49,7 +49,7 @@ if ( (@ARGV<1) or ($ARGV[0] eq '-h') ) {
     -m -mem <integer>
        The total amount of memory used by the job in Gb. Default: $ENV{SJOB_CPUMEM} * (No. of CPUs)
     -q -queue <string>
-       Target queue. Default: autoselect best queue
+       Target queue. Default: autoselect best queue based on run time and project allocation
     -P -project <string>
        Project allocation to use for this job
     -a -architecture <string>
@@ -169,8 +169,17 @@ if ($sArchitecture){
    die "Error: unknown node architecture '$sArchitecture' specified. Choose either 'mothra' for intel nodes, or 'manda' for AMD nodes.\n" unless ($sArchitecture =~ /^(mothra|manda)$/);
 }
 
+# Set default queue with some basic routing depending on requested run time
+unless ($sQueue){
+   if ($sAllocation){
+      $sQueue = $nReqTime <= 2 ? "expressalloc" : "alloc";
+   }
+   else{
+      $sQueue = "scavenger";
+   }
+}
+
 # Set the job resources
-$sQueue         = "scavenger" unless ($sQueue);
 my $nNcpus      = $nNodes * $nCpus;
 my $nProcMem    = $nTotalMem < 0 ? int($ENV{SJOB_CPUMEM} * 1024) : int(($nTotalMem * 1024) / $nNcpus);
 my $sResSpan    = $nNodes        ? "\n#BSUB -R span[ptile=$nCpus]"  : "";
