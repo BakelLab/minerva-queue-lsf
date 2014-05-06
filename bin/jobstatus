@@ -46,8 +46,8 @@ HELP
 my $sCurrentUser = $sWebUser ? $sWebUser : $ENV{USER};
 
 # Check whether the BJOBS binary exist in path
-my $flBJOBSExists = grep -x "$_/$ENV{BJOBS}", @PATH;
-die "Error: BJOBS is not installed on this system\n" unless($flBJOBSExists);
+my $flBJOBSExists = grep -x "$_/bjobs", @PATH;
+die "Error: LSF utilities not found on this system\n" unless ($flBJOBSExists);
 
 # Collect job count stats
 my %hUserStats;

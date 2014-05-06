@@ -44,7 +44,7 @@
    echo "<a href=\"javascript:window.location.reload()\">Last job output on: &nbsp; " . strftime('%c') . "</a>";
    echo "<pre>";
    if (preg_match('/([a-z]|[A-Z])+\d+/',$userName)){
-      system("$minerva_queue_bin/lastjoboutput -p /hpc/users/$userName/pbs-output -n 3");
+      system("$minerva_queue_bin/lastjoboutput -p /hpc/users/$userName/lsf-output -n 1");
    }
    else{
       echo "Username not formatted correctly\n";

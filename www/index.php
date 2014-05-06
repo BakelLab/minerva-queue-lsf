@@ -45,7 +45,8 @@
    echo "<a href=\"javascript:window.location.reload()\">Job Status on: &nbsp; " . strftime('%c') . "</a>";
    echo "<pre>";
    if (preg_match('/([a-z]|[A-Z])+\d+/',$userName)){
-      system("$minerva_queue_bin/jobstatus -w $userName");
+      $output = shell_exec("2>&1 bash -c \"source /etc/profile.d/lsf.sh; $minerva_queue_bin/jobstatus -w $userName\"");
+      echo $output;
    }
    else{
       echo "Username not formatted correctly\n";

@@ -44,7 +44,8 @@
    echo "<a href=\"javascript:window.location.reload()\">Node status on: &nbsp; " . strftime('%c') . "</a>";
    echo "<pre>";
    if (preg_match('/([a-z]|[A-Z])+\d+/',$userName)){
-      system("$minerva_queue_bin/nodestatus");
+      $output = shell_exec("2>&1 bash -c \"source /etc/profile.d/lsf.sh; $minerva_queue_bin/nodestatus \"");
+      echo $output;
    }
    else{
       echo "Username not formatted correctly\n";

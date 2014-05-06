@@ -7,6 +7,7 @@
 use strict;
 use warnings;
 use Getopt::Long;
+use Env '@PATH';
 
 # GET PARAMETERS
 my $sHelp       = 0;
@@ -36,6 +37,10 @@ HELP
 ##########
 ## MAIN ##
 ##########
+
+# Check whether the BJOBS binary exist in path
+my $flBJOBSExists = grep -x "$_/bjobs", @PATH;
+die "Error: LSF utilities not found on this system\n" unless ($flBJOBSExists);
 
 # Collect node info from bhosts
 my $sCurrentNode = "";
@@ -105,7 +110,9 @@ while (<BJOBS>){
    s/[\n\r]+$//;
    my ($sUser, $sHostList) = split / +/, $_, -1;
    if ($sHostList ne '-'){
-      $sUser = $sUser eq $ENV{USER} ? "\e[0;46m${sUser}\e[0m" : $sUser;
+      if ($ENV{USER}){
+         $sUser = $sUser eq $ENV{USER} ? "\e[0;46m${sUser}\e[0m" : $sUser;
+      }
       my @asHostList = split /\:/, $sHostList;
       foreach my $sHost (@asHostList){
          $sHost =~ s/^\d+\*//;

@@ -46,6 +46,7 @@ HELP
 
 # Set output path
 my $sJobOutputPath = $sAltPath ? $sAltPath : $ENV{SJOB_OUTPUT};
+die "Error: Job output directory does not exist\n" unless (-d $sJobOutputPath);
 
 # Sort the output files by job ID or modification date
 opendir my($dir), $sJobOutputPath or die "Can't open $sJobOutputPath : $!\n";
