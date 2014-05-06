@@ -6,8 +6,7 @@
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <meta name="description" content="">
    <meta name="author" content="">
-   <META http-equiv="refresh" content="300">
-   
+
    <link rel="icon" type="image/ico" href="/favicon.ico"/>
    <link href="css/bootstrap.min.css" rel="stylesheet">
    <link href="css/bootstrap-modifications.css" rel="stylesheet">
@@ -29,8 +28,8 @@
       </div>
       <div class="navbar-collapse collapse">
          <ul class="nav navbar-nav">
-            <li class="active"><a href="index.php">Jobstatus</a></li>
-            <li><a href="nodestatus.php">Nodestatus</a></li>
+            <li><a href="index.php">Jobstatus</a></li>
+            <li class="active"><a href="nodestatus.php">Nodestatus</a></li>
             <li><a href="lastjoboutput.php">Lastjoboutput</a></li>
          </ul>
       </div>
@@ -42,10 +41,10 @@
    <?php
    include 'config.php';
    $userName = str_replace('.u.hpc.mssm.edu', '', $_SERVER['SERVER_NAME']);
-   echo "<a href=\"javascript:window.location.reload()\">Job Status on: &nbsp; " . strftime('%c') . "</a>";
+   echo "<a href=\"javascript:window.location.reload()\">Node status on: &nbsp; " . strftime('%c') . "</a>";
    echo "<pre>";
    if (preg_match('/([a-z]|[A-Z])+\d+/',$userName)){
-      system("$minerva_queue_bin/jobstatus -w $userName");
+      system("$minerva_queue_bin/nodestatus");
    }
    else{
       echo "Username not formatted correctly\n";
