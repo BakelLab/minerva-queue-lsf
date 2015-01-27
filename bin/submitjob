@@ -53,7 +53,7 @@ if ( (@ARGV<1) or ($ARGV[0] eq '-h') ) {
     -P -project <string>
        Project allocation to use for this job
     -a -architecture <string>
-       Optionally specify the type of node: 'mothra' for intel nodes or 'manda' for AMD nodes.
+       Optional comma-separated list of node types; e.g 'mothra,bode' for intel nodes or 'manda' for AMD nodes.
     -s -sem <string>
        Optional name of a file to append job IDs to
     -k -checkpoint <string>
@@ -166,7 +166,8 @@ die "Error: missing job command\n" unless @ARGV;
 
 # Check architecture
 if ($sArchitecture){
-   die "Error: unknown node architecture '$sArchitecture' specified. Choose either 'mothra' for intel nodes, or 'manda' for AMD nodes.\n" unless ($sArchitecture =~ /^(mothra|manda)$/);
+   die "Error: unknown node architecture '$sArchitecture' specified. Choose either 'mothra' or 'bode' for intel nodes, or 'manda' for AMD nodes.\n" unless ($sArchitecture =~ /^(mothra|manda|bode)/);
+   $sArchitecture =~ s/,/ /g;
 }
 
 # Set default queue with some basic routing depending on requested run time
@@ -188,7 +189,7 @@ my $sLsfQueue   = $sQueue        ? "\n#BSUB -q $sQueue"  : "";
 my $sLsfAlloc   = $sAllocation   ? "\n#BSUB -P $sAllocation": "";
 my $sLsfCheckpt = $sCheckpoint   ? "\n#BSUB -k \"$sCheckpoint init=5 60 method=blcr\"": "";
 my $sLsfAppProf = $sAppProfile   ? "\n#BSUB -app $sAppProfile": "";
-my $sLsfArch    = $sArchitecture ? "\n#BSUB -m $sArchitecture": "";
+my $sLsfArch    = $sArchitecture ? "\n#BSUB -m \"$sArchitecture\"": "";
 
 # Format the job name
 my $sJobName = $ARGV[0];
@@ -249,7 +250,7 @@ print $fhTmpOut <<SUBMIT;
 #BSUB -n $nNcpus
 #BSUB -W $sWalltime
 #BSUB -E "mkdir -p -m 700 /dev/shm/\$LSB_JOBID"
-#BSUB -Ep "rm -rf /dev/shm/\$LSB_JOBID"
+#BSUB -Ep "rm -rf /dev/shm/\$LSB_JOBID;"
 #BSUB -J $sJobName$sLsfQueue$sLsfAlloc$sResSpan$sResMem$sLsfCheckpt$sLsfAppProf$sLsfArch
 cd $sCwd
 echo -E '==> Run command    :' "$sJobFmt"
