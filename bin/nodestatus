@@ -48,7 +48,7 @@ my %hNodes;
 my %hFsize  = (node=>8,state=>16,properties=>8,np=>16,loadave=>6,mem=>8,userlist=>5);
 open BHOSTS, "bhosts -w |" or die "Error: Can't run bhosts command: $!\n";
 while (<BHOSTS>){
-   if (/^node/){
+   if ($_ !~ /^HOST/){
       s/[\n\r]+$//;
       my ($sHostName, $sState, $sJL, $nMax, $nNjobs, $nRun, $nSsusp, $sUsusp, $sRsv) = split / +/, $_, -1;
       
@@ -72,7 +72,7 @@ close BHOSTS;
 # Collect node properties from lshosts
 open BHOSTS, "lshosts -w |" or die "Error: Can't run lshosts command: $!\n";
 while (<BHOSTS>){
-   if (/^node/){
+   if ($_ !~ /^HOST/){
       s/[\n\r]+$//;
       my ($sHostName, $sType, $sModel, $sCpuf, $sMaxMem, $sMaxSwp, $sServer, $sRes) = split / +/, $_, -1;
       
@@ -85,7 +85,7 @@ while (<BHOSTS>){
 # Collect load and available memory info from lsload
 open LSLOAD, "lsload |" or die "Error: Can't run lsload command: $!\n";
 while (<LSLOAD>){
-   if (/^node/){
+   if ($_ !~ /^HOST/){
       s/[\n\r]+$//;
       my ($sHostName, $sState, $sR15s, $sR1m, $sR15m, $sUt, $sPg, $sLs, $sIt, $sTmp, $sSwp, $sMem) = split / +/, $_, -1;
       
