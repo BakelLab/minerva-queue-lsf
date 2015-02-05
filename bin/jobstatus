@@ -16,8 +16,10 @@ my @asStatusCodes = ('RUN_CPU', 'RUN','PEND','PSUSP','USUSP','SSUSP','PROV');
 # GET PARAMETERS
 my $flHelp       = 0;
 my $sWebUser     = "";
+my $flType       = 0;
 GetOptions("help!"      => \$flHelp,
-           "web:s"      => \$sWebUser);
+           "web:s"      => \$sWebUser,
+           "type!"      => \$flType);
 
 # PRINT HELP
 if ($flHelp) {
@@ -31,6 +33,8 @@ if ($flHelp) {
    Options:
     -w --webuser
       Specify user when called from web server
+    -t --type
+      Break down cpu stats by node type
     -h -help
       This help message
    
@@ -49,16 +53,30 @@ my $sCurrentUser = $sWebUser ? $sWebUser : $ENV{USER};
 my $flBJOBSExists = grep -x "$_/bjobs", @PATH;
 die "Error: LSF utilities not found on this system\n" unless ($flBJOBSExists);
 
+# Collect node properties from lshosts
+my %hNodeTypeMapping;
+open BHOSTS, "lshosts -w |" or die "Error: Can't run lshosts command: $!\n";
+while (<BHOSTS>){
+   if ($_ !~ /^HOST/){
+      s/[\n\r]+$//;
+      my ($sHostName, $sType, $sModel, $sCpuf, $sMaxMem, $sMaxSwp, $sServer, $sRes) = split / +/, $_, -1;
+      $sModel = "OTHER" unless ($sModel);
+      $hNodeTypeMapping{$sHostName} = $sModel;
+   }
+}
+
 # Collect job count stats
+my %hNodeTypes;
 my %hUserStats;
 my %hQueueStats;
 my %hTotalStats;
-open BJOBS, "bjobs -X -u all -o 'jobid user stat queue slots' |" or die "Error: could not run 'BJOBS' to get job status report: $!\n";
+open BJOBS, "bjobs -X -u all -o 'jobid user stat queue slots exec_host' |" or die "Error: could not run 'BJOBS' to get job status report: $!\n";
 while (<BJOBS>){
    s/^\s+//;
    next if (/^JOBID/);
    s/[\n\r]+$//;
-   my ($id,$user,$status,$queue,$slots) = split /\s+/, $_, -1;
+   my ($id,$user,$status,$queue,$slots,$node) = split /\s+/, $_, -1;
+   my @asNodes = split /\:/, $node;
    if ($queue){
       if ($sWebUser){
          $user = "aaaaa*${user}" if ($user eq $sCurrentUser);
@@ -74,10 +92,34 @@ while (<BJOBS>){
          $hUserStats{$user}{$queue}{RUN_CPU} += $slots;
          $hQueueStats{$queue}{RUN_CPU} += $slots;
          $hTotalStats{RUN_CPU} += $slots;
+         
+         if (scalar(@asNodes) > 1){
+            foreach my $sNodeSpec (@asNodes){
+               my ($nNodeSlots, $sNode) = split /\*/, $sNodeSpec;
+               if (exists $hNodeTypeMapping{$sNode}){
+                  $hUserStats{$user}{$queue}{nodetype}{$hNodeTypeMapping{$sNode}} += $nNodeSlots;
+                  $hQueueStats{$queue}{nodetype}{$hNodeTypeMapping{$sNode}} += $nNodeSlots;
+                  $hTotalStats{nodetype}{$hNodeTypeMapping{$sNode}} += $nNodeSlots;
+                  $hNodeTypes{$hNodeTypeMapping{$sNode}}++;
+               }
+            }
+         }
+         else{
+            my $sNode = $asNodes[0];
+            $sNode =~ s/^\d+\*//;
+            if (exists $hNodeTypeMapping{$sNode}){
+               $hUserStats{$user}{$queue}{nodetype}{$hNodeTypeMapping{$sNode}} += $slots;
+               $hQueueStats{$queue}{nodetype}{$hNodeTypeMapping{$sNode}} += $slots;
+               $hTotalStats{nodetype}{$hNodeTypeMapping{$sNode}} += $slots;
+               $hNodeTypes{$hNodeTypeMapping{$sNode}}++;
+            }
+         }
       }
    }
 }
 close BJOBS;
+my @asNodeTypes = sort(keys %hNodeTypes);
+
 
 # Figure out which columns should be displayed
 my @asJobStatus;
@@ -87,6 +129,14 @@ foreach my $sStatus (@asStatusCodes){
 
 # Print header
 my $sHeader = sprintf("%-12s %-14s", 'User', 'Queue');
+if ($flType){
+   foreach my $sNodeType (@asNodeTypes){
+      my $sTypeHead = $sNodeType;
+      $sTypeHead =~ s/NODE//;
+      $sHeader  .= sprintf(" %-8s", $sTypeHead);
+   }
+   $sHeader .= '| ';
+}
 foreach my $sStatus (@asJobStatus){
    my $sp = $sStatus eq 'RUN' ? '| ' : '';
    $sHeader .= sprintf("$sp %-8s", $sStatus);
@@ -109,6 +159,19 @@ foreach my $user (sort(keys(%hUserStats))) {
       else{
          print sprintf("%-12s %-14s", $user, $queue);
       }
+      
+      if ($flType){
+         foreach my $sNodeType (@asNodeTypes){
+            if (exists $hUserStats{$user}{$queue}{nodetype}{$sNodeType}){
+               print sprintf(" %-8s", $hUserStats{$user}{$queue}{nodetype}{$sNodeType});
+            }
+            else{
+               print sprintf(" %-8s", 0);
+            }
+         }
+         print "| ";
+      }
+      
       foreach my $status (@asJobStatus){
          my $sp = $status eq 'RUN' ? '| ' : '';
          if (exists($hUserStats{$user}{$queue}{$status})){
@@ -126,6 +189,19 @@ foreach my $user (sort(keys(%hUserStats))) {
 print '-' x length($sHeader) . "\n";
 foreach my $queue (sort(keys(%hQueueStats))) {
    print sprintf("%-12s %-14s", '', $queue);
+   
+   if ($flType){
+      foreach my $sNodeType (@asNodeTypes){
+         if (exists $hQueueStats{$queue}{nodetype}{$sNodeType}){
+            print sprintf(" %-8s", $hQueueStats{$queue}{nodetype}{$sNodeType});
+         }
+         else{
+            print sprintf(" %-8s", 0);
+         }
+      }
+      print "| ";
+   }
+   
    foreach my $status (@asJobStatus){
       my $sp = $status eq 'RUN' ? '| ' : '';
       if (exists($hQueueStats{$queue}{$status})){
@@ -141,6 +217,17 @@ foreach my $queue (sort(keys(%hQueueStats))) {
 # Print totals
 print " " x 13 . "-" x (length($sHeader)-13) . "\n";
 print sprintf("%-12s %-14s", '', 'totals');
+if ($flType){
+   foreach my $sNodeType (@asNodeTypes){
+      if (exists $hTotalStats{nodetype}{$sNodeType}){
+         print sprintf(" %-8s", $hTotalStats{nodetype}{$sNodeType});
+      }
+      else{
+         print sprintf(" %-8s", 0);
+      }
+   }
+   print "| ";
+}
 foreach my $status (@asJobStatus){
    my $sp = $status eq 'RUN' ? '| ' : '';
    if (exists($hTotalStats{$status})){
