@@ -176,7 +176,7 @@ unless ($sQueue){
       $sQueue = $nReqTime <= 2 ? "expressalloc" : "alloc";
    }
    else{
-      $sQueue = "scavenger";
+      $sQueue = "low";
    }
 }
 
