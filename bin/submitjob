@@ -58,6 +58,10 @@ if ( (@ARGV<1) or ($ARGV[0] eq '-h') ) {
        Optional name of a file to append job IDs to
     -k -checkpoint <string>
        Automatically checkpoint a job every hour to the checkpoint directory specified here.
+    -w -dependency <string>
+       Optionally specify a job dependency expression
+    -J -jobname <string>
+       Optionally specify a job name. Will be set to command name if left empty.
     -app <string>
        Specify an application profile. E.g. mpi switch configuration, checkpointing
 
@@ -78,15 +82,17 @@ my $nReqTime      = $ENV{SJOB_WALLTIME};
 my $sAllocation   = $ENV{SJOB_DEFALLOC};
 
 # Check submitjob arguments
-my $flCheckForArgs = 1;
-my $sWalltime      = "$nReqTime:00";
-my $sSemaphore     = "";
-my $sQueue         = "";
-my $sCheckpoint    = "";
-my $flDebug        = 0;
-my $flSelfSched    = 0;
-my $sAppProfile    = "";
-my $sArchitecture  = "";
+my $flCheckForArgs        = 1;
+my $sWalltime             = "$nReqTime:00";
+my $sSemaphore            = "";
+my $sQueue                = "";
+my $sCheckpoint           = "";
+my $flDebug               = 0;
+my $flSelfSched           = 0;
+my $sAppProfile           = "";
+my $sArchitecture         = "";
+my $sDependencyExpression = "";
+my $sJobName              = "";
 while($flCheckForArgs){
    if ($ARGV[0] =~ /^(\d+)\.*\d*$/){
       $nReqTime = shift @ARGV;
@@ -146,6 +152,16 @@ while($flCheckForArgs){
       shift @ARGV;
       $sAllocation = shift @ARGV;
    }
+   elsif($ARGV[0] =~ /(^-w)|(^-dependency)|(^--dependency)/){
+      die "Error: insufficient arguments\n" unless (@ARGV >= 2);
+      shift @ARGV;
+      $sDependencyExpression = shift @ARGV;
+   }
+   elsif($ARGV[0] =~ /(^-J)|(^-jobname)|(^--jobname)/){
+      die "Error: insufficient arguments\n" unless (@ARGV >= 2);
+      shift @ARGV;
+      $sJobName = shift @ARGV;
+   }
    elsif (lc($ARGV[0]) =~ /^selfsched/){
       shift @ARGV;
       $flSelfSched = 1;
@@ -181,24 +197,27 @@ unless ($sQueue){
 }
 
 # Set the job resources
-my $nNcpus      = $nNodes * $nCpus;
-my $nProcMem    = $nTotalMem < 0 ? int($ENV{SJOB_CPUMEM} * 1024) : int(($nTotalMem * 1024) / $nNcpus);
-my $sResSpan    = $nNodes        ? "\n#BSUB -R span[ptile=$nCpus]"  : "";
-my $sResMem     = $nProcMem      ? "\n#BSUB -R rusage[mem=$nProcMem]"  : "";
-my $sLsfQueue   = $sQueue        ? "\n#BSUB -q $sQueue"  : "";
-my $sLsfAlloc   = $sAllocation   ? "\n#BSUB -P $sAllocation": "";
-my $sLsfCheckpt = $sCheckpoint   ? "\n#BSUB -k \"$sCheckpoint init=5 60 method=blcr\"": "";
-my $sLsfAppProf = $sAppProfile   ? "\n#BSUB -app $sAppProfile": "";
-my $sLsfArch    = $sArchitecture ? "\n#BSUB -m \"$sArchitecture\"": "";
+my $nNcpus         = $nNodes * $nCpus;
+my $nProcMem       = $nTotalMem < 0         ? int($ENV{SJOB_CPUMEM} * 1024) : int(($nTotalMem * 1024) / $nNcpus);
+my $sResSpan       = $nNodes                ? "\n#BSUB -R span[ptile=$nCpus]" : "";
+my $sResMem        = $nProcMem              ? "\n#BSUB -R rusage[mem=$nProcMem]" : "";
+my $sLsfQueue      = $sQueue                ? "\n#BSUB -q $sQueue" : "";
+my $sLsfAlloc      = $sAllocation           ? "\n#BSUB -P $sAllocation" : "";
+my $sLsfCheckpt    = $sCheckpoint           ? "\n#BSUB -k \"$sCheckpoint init=5 60 method=blcr\"" : "";
+my $sLsfAppProf    = $sAppProfile           ? "\n#BSUB -app $sAppProfile" : "";
+my $sLsfArch       = $sArchitecture         ? "\n#BSUB -m \"$sArchitecture\"" : "";
+my $sLsfDependency = $sDependencyExpression ? "\n#BSUB -w '$sDependencyExpression'" : "";
 
-# Format the job name
-my $sJobName = $ARGV[0];
-$sJobName    =~ s/^ +//;  # Remove leading spaces
-$sJobName    =~ s/ .*$//; # Remove anything following a space
-$sJobName    =~ s/.*\///; # Remove the path before any command
-$sJobName    =~ s/\&//;   # Remove any ampersands
-$sJobName    =~ s/^\d+//; # Remove any leading digits, otherwise bsub will throw an error
-$sJobName    =  substr($sJobName,0,12); # Make sure job name does not exceed max length
+# Format the job name if none was provided
+unless ($sJobName){
+   $sJobName = $ARGV[0];
+   $sJobName    =~ s/^ +//;  # Remove leading spaces
+   $sJobName    =~ s/ .*$//; # Remove anything following a space
+   $sJobName    =~ s/.*\///; # Remove the path before any command
+   $sJobName    =~ s/\&//;   # Remove any ampersands
+   $sJobName    =~ s/^\d+//; # Remove any leading digits, otherwise bsub will throw an error
+   $sJobName    =  substr($sJobName,0,12); # Make sure job name does not exceed max length
+}
 
 # Set up the job command depending on whether this is a self-scheduling run or an inline-command submission
 my ($sJobCmd, $sJobFmt) = ("","");
@@ -251,7 +270,7 @@ print $fhTmpOut <<SUBMIT;
 #BSUB -W $sWalltime
 #BSUB -E "mkdir -p -m 700 /dev/shm/\$LSB_JOBID"
 #BSUB -Ep "rm -rf /dev/shm/\$LSB_JOBID;"
-#BSUB -J $sJobName$sLsfQueue$sLsfAlloc$sResSpan$sResMem$sLsfCheckpt$sLsfAppProf$sLsfArch
+#BSUB -J $sJobName$sLsfQueue$sLsfAlloc$sResSpan$sResMem$sLsfCheckpt$sLsfAppProf$sLsfArch$sLsfDependency
 cd $sCwd
 echo -E '==> Run command    :' "$sJobFmt"
 echo    '==> Execution host :' `hostname`
