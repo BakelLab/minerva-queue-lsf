@@ -208,6 +208,11 @@ my $sLsfAppProf    = $sAppProfile           ? "\n#BSUB -app $sAppProfile" : "";
 my $sLsfArch       = $sArchitecture         ? "\n#BSUB -m \"$sArchitecture\"" : "";
 my $sLsfDependency = $sDependencyExpression ? "\n#BSUB -w '$sDependencyExpression'" : "";
 
+# Routing to himem node for large memory jobs
+if ($nTotalMem > 256){
+   $sResMem = "\n#BSUB -R himem";
+}
+
 # Format the job name if none was provided
 unless ($sJobName){
    $sJobName = $ARGV[0];
@@ -274,6 +279,7 @@ print $fhTmpOut <<SUBMIT;
 cd $sCwd
 echo -E '==> Run command    :' "$sJobFmt"
 echo    '==> Execution host :' `hostname`
+export JOB_NCPUS=$nCpus
 if [ -e /dev/shm/\$LSB_JOBID ]
 then
    export TMPSHMDIR=/dev/shm/\$LSB_JOBID
