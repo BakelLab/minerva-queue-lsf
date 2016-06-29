@@ -62,6 +62,8 @@ if ( (@ARGV<1) or ($ARGV[0] eq '-h') ) {
        Optionally specify a job dependency expression
     -J -jobname <string>
        Optionally specify a job name. Will be set to command name if left empty.
+    -g -group <string>
+       Optionally specify a host group
     -app <string>
        Specify an application profile. E.g. mpi switch configuration, checkpointing
 
@@ -93,6 +95,7 @@ my $sAppProfile           = "";
 my $sArchitecture         = "";
 my $sDependencyExpression = "";
 my $sJobName              = "";
+my $sHostGroup            = "";
 while($flCheckForArgs){
    if ($ARGV[0] =~ /^(\d+)\.*\d*$/){
       $nReqTime = shift @ARGV;
@@ -162,6 +165,12 @@ while($flCheckForArgs){
       shift @ARGV;
       $sJobName = shift @ARGV;
    }
+   elsif($ARGV[0] =~ /(^-g)|(^-group)|(^--group)/){
+       die "Error: insufficient arguments\n" unless (@ARGV >= 2);
+       shift @ARGV;
+       $sHostGroup = shift @ARGV;
+   }
+
    elsif (lc($ARGV[0]) =~ /^selfsched/){
       shift @ARGV;
       $flSelfSched = 1;
@@ -207,10 +216,11 @@ my $sLsfCheckpt    = $sCheckpoint           ? "\n#BSUB -k \"$sCheckpoint init=5 
 my $sLsfAppProf    = $sAppProfile           ? "\n#BSUB -app $sAppProfile" : "";
 my $sLsfArch       = $sArchitecture         ? "\n#BSUB -m \"$sArchitecture\"" : "";
 my $sLsfDependency = $sDependencyExpression ? "\n#BSUB -w '$sDependencyExpression'" : "";
+my $sLsfHostGroup  = $sHostGroup            ? "\n#BSUB -m $sHostGroup" : "";
 
 # Routing to himem node for large memory jobs
 if ($nTotalMem > 256){
-   $sResMem = "\n#BSUB -R himem";
+   $sResMem .= "\n#BSUB -R himem";
 }
 
 # Format the job name if none was provided
@@ -275,7 +285,7 @@ print $fhTmpOut <<SUBMIT;
 #BSUB -W $sWalltime
 #BSUB -E "mkdir -p -m 700 /dev/shm/\$LSB_JOBID"
 #BSUB -Ep "rm -rf /dev/shm/\$LSB_JOBID;"
-#BSUB -J $sJobName$sLsfQueue$sLsfAlloc$sResSpan$sResMem$sLsfCheckpt$sLsfAppProf$sLsfArch$sLsfDependency
+#BSUB -J $sJobName$sLsfQueue$sLsfAlloc$sResSpan$sResMem$sLsfCheckpt$sLsfAppProf$sLsfArch$sLsfDependency$sLsfHostGroup
 cd $sCwd
 echo -E '==> Run command    :' "$sJobFmt"
 echo    '==> Execution host :' `hostname`
