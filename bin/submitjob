@@ -219,7 +219,7 @@ my $sLsfDependency = $sDependencyExpression ? "\n#BSUB -w '$sDependencyExpressio
 my $sLsfHostGroup  = $sHostGroup            ? "\n#BSUB -m $sHostGroup" : "";
 
 # Routing to himem node for large memory jobs
-if ($nTotalMem > 256){
+if ( ($nTotalMem > 256) and ($sLsfHostGroup eq "") ){
    $sResMem .= "\n#BSUB -R himem";
 }
 
