@@ -206,9 +206,18 @@ unless ($sQueue){
 }
 
 # Set the job resources
+#my $sResSpan       = $nNodes                ? "\n#BSUB -R span[ptile=$nCpus]" : "";
+my $sResSpan = "";
+if ($nNodes){
+   if ($nNodes == 1){
+      $sResSpan = "\n#BSUB -R span[hosts=1]";
+   }
+   else{
+      $sResSpan ="\n#BSUB -R span[ptile=$nCpus]";
+   }
+}
 my $nNcpus         = $nNodes * $nCpus;
 my $nProcMem       = $nTotalMem < 0         ? int($ENV{SJOB_CPUMEM} * 1024) : int(($nTotalMem * 1024) / $nNcpus);
-my $sResSpan       = $nNodes                ? "\n#BSUB -R span[ptile=$nCpus]" : "";
 my $sResMem        = $nProcMem              ? "\n#BSUB -R rusage[mem=$nProcMem]" : "";
 my $sLsfQueue      = $sQueue                ? "\n#BSUB -q $sQueue" : "";
 my $sLsfAlloc      = $sAllocation           ? "\n#BSUB -P $sAllocation" : "";
