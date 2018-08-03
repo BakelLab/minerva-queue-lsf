@@ -60,6 +60,7 @@ while (<BHOSTS>){
       $hFsize{state} = length($sState) if(length($sState) > $hFsize{state});
       
       # Number of slots/processors in node
+      $nMax = $nMax =~ /^\d+$/ ? $nMax : 0;
       $hNodes{$sHostName}{np} = $nMax;
       $hFsize{np} = $nMax+1 if($nMax > $hFsize{np});
       
