@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # Shows the output of the last N jobs that finished running on the cluster
 # Convenience function to avoid having to find the most recent job output file
