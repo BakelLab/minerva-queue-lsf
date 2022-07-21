@@ -198,7 +198,7 @@ if ($sArchitecture){
 # Set default queue with some basic routing depending on requested run time
 unless ($sQueue){
    if ($sAllocation){
-      $sQueue = $nReqTime <= 2 ? "expressalloc" : "alloc";
+      $sQueue = $nReqTime <= 2 ? "premium" : "premium";
    }
    else{
       $sQueue = "low";
@@ -216,6 +216,23 @@ if ($nNodes){
       $sResSpan ="\n#BSUB -R span[ptile=$nCpus]";
    }
 }
+
+
+# Set GPU node specific options
+my $sGpuOptions = "";
+if ($sQueue eq "gpu"){
+   $sGpuOptions = "\n#BSUB -R a100\n#BSUB -R rusage[ngpus_excl_p=1]";
+}
+if ($sQueue eq "gpu_v100"){
+   $sGpuOptions = "\n#BSUB -R v100\n#BSUB -R rusage[ngpus_excl_p=1]";
+   $sQueue = "gpu";
+}
+if ($sQueue eq "gpu_a100"){
+   $sGpuOptions = "\n#BSUB -R a100\n#BSUB -R rusage[ngpus_excl_p=1]";
+   $sQueue = "gpu";
+}
+
+# General queue options
 my $nNcpus         = $nNodes * $nCpus;
 my $nProcMem       = $nTotalMem < 0         ? int($ENV{SJOB_CPUMEM} * 1024) : int(($nTotalMem * 1024) / $nNcpus);
 my $sResMem        = $nProcMem              ? "\n#BSUB -R rusage[mem=$nProcMem]" : "";
@@ -294,7 +311,7 @@ print $fhTmpOut <<SUBMIT;
 #BSUB -W $sWalltime
 #BSUB -E "mkdir -p -m 700 /dev/shm/\$LSB_JOBID"
 #BSUB -Ep "rm -rf /dev/shm/\$LSB_JOBID;"
-#BSUB -J $sJobName$sLsfQueue$sLsfAlloc$sResSpan$sResMem$sLsfCheckpt$sLsfAppProf$sLsfArch$sLsfDependency$sLsfHostGroup
+#BSUB -J $sJobName$sLsfQueue$sLsfAlloc$sResSpan$sResMem$sLsfCheckpt$sLsfAppProf$sLsfArch$sLsfDependency$sLsfHostGroup$sGpuOptions
 cd $sCwd
 echo -E '==> Run command    :' "$sJobFmt"
 echo    '==> Execution host :' `hostname`
