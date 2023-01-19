@@ -223,6 +223,10 @@ my $sGpuOptions = "";
 if ($sQueue eq "gpu"){
    $sGpuOptions = "\n#BSUB -R a100\n#BSUB -R rusage[ngpus_excl_p=1]";
 }
+if ($sQueue eq "gpuexpress"){
+   $sGpuOptions = "\n#BSUB -R a100\n#BSUB -R rusage[ngpus_excl_p=1]";
+   $sQueue = "gpuexpress";
+}
 if ($sQueue eq "gpu_v100"){
    $sGpuOptions = "\n#BSUB -R v100\n#BSUB -R rusage[ngpus_excl_p=1]";
    $sQueue = "gpu";
