@@ -1,0 +1,67 @@
+#!/bin/sh
+
+# 21.01.2023 17:05:27 EST
+# Harm van Bakel <hvbakel@gmail.com>
+
+# Aliases
+alias awkt="awk -F '\t' -v OFS='\t'"
+alias sortt="sort -t $'\t'"
+
+# Process command line arguments
+EMAIL_ADDRESS=""
+JOBNAME=""
+while getopts "m:J:" opt; do
+   case $opt in
+
+   m) 
+      EMAIL_ADDRESS="$OPTARG"
+      ;;
+   
+   J) 
+      JOBNAME="-J $OPTARG"
+      ;;
+   
+   *)
+      echo "Incorrect options provided"
+      exit 1
+      ;;
+
+   esac
+done
+
+# Check arguments and produce a help message
+if [ ! "$EMAIL_ADDRESS" ];
+then
+  cat << EOF
+
+   Usage: mailonfinishedjobs [ -J <job-name> ] -m <email-address>
+
+   Monitor your job queue and send email if there are no more jobs 
+   in the queue.
+
+   Arguments:
+    -m <string>
+      Email address to send the notification to.
+    -J <string>
+      Monitor jobs with a specific job name (optional)
+    -help
+      This help message
+
+EOF
+  exit 0
+fi
+
+# Monitor job queue
+MONITOR=1
+while [ ${MONITOR} == 1 ]
+do
+   NUMJOBS=`bjobs ${JOBNAME} 2> /dev/null | wc -l`
+   if [[ ${NUMJOBS} == 0 ]]
+   then
+      echo "No more monitored jobs in queue." \
+         | mail -s "No more monitored jobs in queue on ${HOSTNAME}" $EMAIL_ADDRESS
+      MONITOR=0
+   else
+      sleep 30
+   fi
+done
