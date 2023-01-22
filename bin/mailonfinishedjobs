@@ -65,6 +65,7 @@ EOF
 fi
 
 # Monitor job queue
+>&2 echo "Starting monitoring of${MONITORNAME} jobs in HPC queue"
 MONITOR=1
 while [ ${MONITOR} == 1 ]
 do
@@ -74,6 +75,7 @@ do
       echo "No more${MONITORNAME} monitored jobs in HPC queue on ${HOSTNAME}." \
          | mail -s "No more${MONITORNAME} monitored jobs in HPC queue" $EMAIL_ADDRESS
       MONITOR=0
+      >&2 echo "No more${MONITORNAME} jobs in HPC queue. Exiting."
    else
       sleep 30
    fi
