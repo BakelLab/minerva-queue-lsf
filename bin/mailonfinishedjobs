@@ -11,15 +11,20 @@ alias sortt="sort -t $'\t'"
 EMAIL_ADDRESS=""
 JOBNAME=""
 MONITORNAME=""
-while getopts "m:J:n:" opt; do
+QUEUE=""
+while getopts "m:J:q:n:" opt; do
    case $opt in
 
-   m) 
+   m)
       EMAIL_ADDRESS="$OPTARG"
       ;;
    
-   J) 
+   J)
       JOBNAME="-J $OPTARG"
+      ;;
+
+   q)
+      QUEUE="-q $OPTARG"
       ;;
 
    n)
@@ -43,7 +48,7 @@ if [ ! "$EMAIL_ADDRESS" ];
 then
   cat << EOF
 
-   Usage: mailonfinishedjobs [ -J <job-name> ] -m <email-address> [ jobid1 ... jobidN ]
+   Usage: mailonfinishedjobs [ -J <job-name> -q <queue-name> ] -m <email-address> [ jobid1 ... jobidN ]
 
    Monitor your job queue and send email if there are no more jobs 
    in the queue. When run without extra arguments it monitors all queued
@@ -55,6 +60,8 @@ then
       Email address to send the notification to (required).
     -J <string>
       Monitor jobs with a specific job name (optional)
+    -q <queue>
+      Monitor jobs in a specific queue (optional)
     -n <string>
       Assign a name to the monitor task (optional)
     -help
@@ -73,7 +80,7 @@ sleep 20
 MONITOR=1
 while [ ${MONITOR} == 1 ]
 do
-   NUMJOBS=`bjobs ${JOBNAME} ${JOBIDS} 2> /dev/null | grep -vP 'JOBID|EXIT|DONE' | wc -l`
+   NUMJOBS=`bjobs ${JOBNAME} ${QUEUE} ${JOBIDS} 2> /dev/null | grep -vP 'JOBID|EXIT|DONE' | wc -l`
    if [[ ${NUMJOBS} == 0 ]]
    then
       echo "No more${MONITORNAME} monitored jobs in HPC queue on ${HOSTNAME}." \
