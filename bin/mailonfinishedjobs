@@ -73,8 +73,9 @@ fi
 
 # It can take some time for the scheduler to pick up on newly submitted jobs. Therefore we
 # add a brief delay before we begin checking the job queue
->&2 echo "Starting monitoring of${MONITORNAME} jobs in HPC queue with the following command:"
->&2 echo "  bjobs${JOBNAME}${QUEUE} ${JOBIDS}"
+STARTTIME=`date`
+>&2 echo "${STARTTIME} -- Starting monitoring of${MONITORNAME} jobs in HPC queue (command:  bjobs${JOBNAME}${QUEUE} ${JOBIDS})"
+>&2 echo "${STARTTIME} -- Notification will be sent to '${EMAIL_ADDRESS}' when the queue is empty"
 sleep 20
 
 # Monitor job queue
@@ -84,10 +85,11 @@ do
    NUMJOBS=`bjobs ${JOBNAME} ${QUEUE} ${JOBIDS} | grep -vP 'JOBID|EXIT|DONE' | wc -l`
    if [[ ${NUMJOBS} == 0 ]]
    then
-      echo "No more${MONITORNAME} monitored jobs in HPC queue on ${HOSTNAME}." \
+      ENDTIME=`date`
+      echo "No more${MONITORNAME} monitored jobs in HPC queue on ${HOSTNAME}.  Start time: ${STARTTIME}.  End time: ${ENDTIME}" \
          | mail -s "No more${MONITORNAME} monitored jobs in HPC queue" $EMAIL_ADDRESS
       MONITOR=0
-      >&2 echo "No more${MONITORNAME} jobs in HPC queue. Exiting."
+      >&2 echo "${ENDTIME} -- No more${MONITORNAME} jobs in HPC queue. Exiting."
    else
       sleep 30
    fi
