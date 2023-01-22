@@ -64,8 +64,12 @@ EOF
   exit 0
 fi
 
-# Monitor job queue
+# It can take some time for the scheduler to pick up on newly submitted jobs. Therefore we
+# add a brief delay before we begin checking the job queue
 >&2 echo "Starting monitoring of${MONITORNAME} jobs in HPC queue"
+sleep 20
+
+# Monitor job queue
 MONITOR=1
 while [ ${MONITOR} == 1 ]
 do
