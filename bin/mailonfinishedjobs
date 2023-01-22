@@ -20,11 +20,11 @@ while getopts "m:J:q:n:" opt; do
       ;;
    
    J)
-      JOBNAME="-J $OPTARG"
+      JOBNAME=" -J $OPTARG"
       ;;
 
    q)
-      QUEUE="-q $OPTARG"
+      QUEUE=" -q $OPTARG"
       ;;
 
    n)
@@ -73,7 +73,8 @@ fi
 
 # It can take some time for the scheduler to pick up on newly submitted jobs. Therefore we
 # add a brief delay before we begin checking the job queue
->&2 echo "Starting monitoring of${MONITORNAME} jobs in HPC queue"
+>&2 echo "Starting monitoring of${MONITORNAME} jobs in HPC queue with the following command:"
+>&2 echo "  bjobs${JOBNAME}${QUEUE} ${JOBIDS}"
 sleep 20
 
 # Monitor job queue
