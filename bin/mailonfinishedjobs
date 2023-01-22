@@ -10,7 +10,8 @@ alias sortt="sort -t $'\t'"
 # Process command line arguments
 EMAIL_ADDRESS=""
 JOBNAME=""
-while getopts "m:J:" opt; do
+MONITORNAME=""
+while getopts "m:J:n:" opt; do
    case $opt in
 
    m) 
@@ -19,6 +20,10 @@ while getopts "m:J:" opt; do
    
    J) 
       JOBNAME="-J $OPTARG"
+      ;;
+
+   n)
+      MONITORNAME=" '$OPTARG'"
       ;;
    
    *)
@@ -29,21 +34,29 @@ while getopts "m:J:" opt; do
    esac
 done
 
+# Grab other arguments
+shift $((OPTIND-1))
+JOBIDS=$@
+
 # Check arguments and produce a help message
 if [ ! "$EMAIL_ADDRESS" ];
 then
   cat << EOF
 
-   Usage: mailonfinishedjobs [ -J <job-name> ] -m <email-address>
+   Usage: mailonfinishedjobs [ -J <job-name> ] -m <email-address> [ jobid1 ... jobidN ]
 
    Monitor your job queue and send email if there are no more jobs 
-   in the queue.
+   in the queue. When run without extra arguments it monitors all queued
+   jobs. It is also possible to provide extra arguments to filter for
+   specific jobs by name or ids(s)
 
    Arguments:
     -m <string>
-      Email address to send the notification to.
+      Email address to send the notification to (required).
     -J <string>
       Monitor jobs with a specific job name (optional)
+    -n <string>
+      Assign a name to the monitor task (optional)
     -help
       This help message
 
@@ -55,11 +68,11 @@ fi
 MONITOR=1
 while [ ${MONITOR} == 1 ]
 do
-   NUMJOBS=`bjobs ${JOBNAME} 2> /dev/null | wc -l`
+   NUMJOBS=`bjobs ${JOBNAME} ${JOBIDS} 2> /dev/null | grep -vP 'JOBID|EXIT|DONE' | wc -l`
    if [[ ${NUMJOBS} == 0 ]]
    then
-      echo "No more monitored jobs in queue." \
-         | mail -s "No more monitored jobs in queue on ${HOSTNAME}" $EMAIL_ADDRESS
+      echo "No more${MONITORNAME} monitored jobs in HPC queue on ${HOSTNAME}." \
+         | mail -s "No more${MONITORNAME} monitored jobs in HPC queue" $EMAIL_ADDRESS
       MONITOR=0
    else
       sleep 30
