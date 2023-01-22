@@ -80,7 +80,7 @@ sleep 20
 MONITOR=1
 while [ ${MONITOR} == 1 ]
 do
-   NUMJOBS=`bjobs ${JOBNAME} ${QUEUE} ${JOBIDS} 2> /dev/null | grep -vP 'JOBID|EXIT|DONE' | wc -l`
+   NUMJOBS=`bjobs ${JOBNAME} ${QUEUE} ${JOBIDS} | grep -vP 'JOBID|EXIT|DONE' | wc -l`
    if [[ ${NUMJOBS} == 0 ]]
    then
       echo "No more${MONITORNAME} monitored jobs in HPC queue on ${HOSTNAME}." \
