@@ -53,7 +53,9 @@ then
    Monitor your job queue and send email if there are no more jobs 
    in the queue. When run without extra arguments it monitors all queued
    jobs. It is also possible to provide extra arguments to filter for
-   specific jobs by name or ids(s)
+   specific jobs by name, ids(s), or queue. Use 'screen' or 'screen -dm' 
+   (to start in detached mode) to ensure the monitor job remains running
+   even after your ssh session ends.
 
    Arguments:
     -m <string>
