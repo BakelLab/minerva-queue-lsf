@@ -15,20 +15,20 @@ The minerva-queue repository contains a set of scripts to make it easier to inte
 
 2. Add the 'bin' directory with the queue scripts to your PATH environment variable. For example if you cloned the repository in ~/opt, add the  following to your ~/.bashrc file:
 
-   ```bash
-   export PATH="$PATH:~/opt/minerva-queue-lsf/bin"
-   ```
+      ```bash
+      export PATH="$PATH:~/opt/minerva-queue-lsf/bin"
+      ```
 
 3. Optionally, you can symlink the content of the 'www' folder to your minerva web folder (~/www), for example:
 
-   ```bash
-   ln -S /path/to/minerva-queue-lsf/www ~/www/jobs
-   ```
+      ```bash
+      ln -S /path/to/minerva-queue-lsf/www ~/www/jobs
+      ```
 
-   This will allow you to check job status through a web browser on  your computer/phone/tablet, using the url https://<username>.u.hpc.mssm.edu/jobs Note that you will need to set the correct path to your minerva-queue-lsf repository 
-   bin folder by copying the content of the file 'config.sample.php' to 'config.php' and editing the path.
+This will allow you to check job status through a web browser on  your computer/phone/tablet, using the url https://<username>.u.hpc.mssm.edu/jobs Note that you will need to set the correct path to your minerva-queue-lsf repository  bin folder by copying the content of the file 'config.sample.php' to 'config.php' and editing the path.
 
 Be sure to periodically run 'git pull' in the minerva-queue-lsf directory as the code is updated frequently to stay up to date with the latest queue changes and to add new features.
+
 
 
 
