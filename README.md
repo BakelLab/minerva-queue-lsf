@@ -39,7 +39,7 @@ Be sure to periodically run 'git pull' in the minerva-queue-lsf directory as the
 Wrapper script to simplify job submission. Job STDOUT and STDERR are combined and sent to ~/lsf-output or any other dir specified in the SJOB_OUTPUT environment variable. If you use inline awk/perl/matlab commands, submitjob will also properly escape these commands so that they will run in the queue. If no destination queue is specified, submitjob will route the job to the best fitting minerva queue.
 
 Examples;
-
+```
     submitjob 1 -m 12 -c 1  <jobcmd>
       => Request 1 hour of walltime, 12 Gb of (total) memory and 1 cpu on any
          (AMD or intel) node.
@@ -60,6 +60,7 @@ Examples;
          selfsched utility. In the case listed here, selfsched will run
          64 concurrent commands on a single node and exit after all
          commands in <cmdfile> are processed.
+```
 
 The submitjob script default job settings can be changed by exporting the   following environment variables in your .bashrc:
     SJOB_OUTPUT    => Location of job output files
@@ -140,19 +141,21 @@ Options:
 
 Will always show the output of the most recently finished job(s). Assumes that your job output is in ~/lsf-output (the submitjob default), or any other dir specified in the SJOB_OUTPUT environment variable. Type 'lastjoboutput -h' for more arguments.
 
-    lastjoboutput [ -n | -i ]
+```
+lastjoboutput [ -n | -i ]
     
-    Shows the content of the pbs output file for the most recently finished job(s).
+Shows the content of the pbs output file for the most recently finished job(s).
     
-    Options:
-    -n <integer>
-      Show output of the last n files, instead of just the last one
-    -p <string>
-      Specify an alternative path to the job output folder
-    -i
-      Use job ID rather than file modification time to select most recent jobs
-    -help
-      This help message
+ Options:
+ -n <integer>
+   Show output of the last n files, instead of just the last one
+ -p <string>
+   Specify an alternative path to the job output folder
+ -i
+   Use job ID rather than file modification time to select most recent jobs
+ -help
+   This help message
+```
 
 
 
@@ -189,8 +192,8 @@ Options:
 
 Summary representation of node usage. Useful for tailoring jobs to fit the available CPU slots and monitoring jobs as they run.
 
-``` SYMBOL LEGEND
-Usage: nodestatus
+```
+nodestatus 
 
 Displays a graphical summary of node occupancy.
   
