@@ -9,19 +9,19 @@ The minerva-queue repository contains a set of scripts to make it easier to inte
 
 1. Get the most recent version of the minerva queue utilities from Bitbucket:
 
-      ```
+      ```bash
       git clone git@bitbucket.org:hvbakel/minerva-queue-lsf.git
       ```
 
 2. Add the 'bin' directory with the queue scripts to your PATH environment variable. For example if you cloned the repository in ~/opt, add the  following to your ~/.bashrc file:
 
-   ```
+   ```bash
    export PATH="$PATH:~/opt/minerva-queue-lsf/bin"
    ```
 
 3. Optionally, you can symlink the content of the 'www' folder to your minerva web folder (~/www), for example:
 
-   ```
+   ```bash
    ln -S /path/to/minerva-queue-lsf/www ~/www/jobs
    ```
 
@@ -39,7 +39,7 @@ Be sure to periodically run 'git pull' in the minerva-queue-lsf directory as the
 Wrapper script to simplify job submission. Job STDOUT and STDERR are combined and sent to ~/lsf-output or any other dir specified in the SJOB_OUTPUT environment variable. If you use inline awk/perl/matlab commands, submitjob will also properly escape these commands so that they will run in the queue. If no destination queue is specified, submitjob will route the job to the best fitting minerva queue.
 
 Examples;
-```
+```text
     submitjob 1 -m 12 -c 1  <jobcmd>
       => Request 1 hour of walltime, 12 Gb of (total) memory and 1 cpu on any
          (AMD or intel) node.
@@ -62,17 +62,19 @@ Examples;
          commands in <cmdfile> are processed.
 ```
 
-The submitjob script default job settings can be changed by exporting the   following environment variables in your .bashrc:
+The submitjob script default job settings can be changed by exporting the following environment variables in your .bashrc:
+```text
     SJOB_OUTPUT    => Location of job output files
     SJOB_CPUS      => Default number of CPUs per node
     SJOB_CPUMEM    => Default memory allocation per CPU in Gb
     SJOB_WALLTIME  => Default walltime in hours
     SJOB_NODES     => Default number of nodes
     SJOB_DEFALLOC  => Default allocation to run jobs in
+```
 
 Default settings will always be overridden by submitjob arguments. Type submitjob -h to get the latest arguments.
 
-```
+```text
 submitjob [walltime] [-mpcnWqsk] { <command> | selfsched <file> }
 
 <command>
@@ -121,7 +123,7 @@ Any job exceeding the requested run time and memory limits will be killed automa
 
 Summary representation of all queued and running jobs. Your jobs will always be listed at the top.
 
-```
+```text
 jobstatus [-scgh]
 
 Gives a brief summary of all running and queued jobs.
@@ -141,7 +143,7 @@ Options:
 
 Will always show the output of the most recently finished job(s). Assumes that your job output is in ~/lsf-output (the submitjob default), or any other dir specified in the SJOB_OUTPUT environment variable. Type 'lastjoboutput -h' for more arguments.
 
-```
+```text
 lastjoboutput [ -n | -i ]
     
 Shows the content of the pbs output file for the most recently finished job(s).
@@ -163,7 +165,7 @@ Shows the content of the pbs output file for the most recently finished job(s).
 
 Reports a summary of the exit status for all jobs with output in ~/lsf-output/ or any other dir specified in the SJOB_OUTPUT environment variable. Type 'jobexitstatus -h' for more arguments.
 
-```
+```text
 jobexitstatus [-pnvr]
 
 Check the exit status of recently finished jobs. Can be used to make sure that
@@ -192,7 +194,7 @@ Options:
 
 Summary representation of node usage. Useful for tailoring jobs to fit the available CPU slots and monitoring jobs as they run.
 
-```
+```text
 nodestatus 
 
 Displays a graphical summary of node occupancy.
@@ -210,7 +212,7 @@ Options:
 
 Utility script to monitor your job queue and send an email if there are no more jobs in the queue based on provided parameters.
 
-```
+```text
 Usage: mailonfinishedjobs [ -J <job-name> -q <queue-name> ] -m <email-address> [ jobid1 ... jobidN ]
 
 Monitor your job queue and send email if there are no more jobs 
