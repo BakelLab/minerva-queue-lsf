@@ -199,13 +199,6 @@ Options:
   Only list information for nodes running your jobs
  -help
    This help message
-
-
-SYMBOL LEGEND
-* Allocated busy
-/ Allocated idle 
-# Unallocated busy 
-- free
 ```
 
 
