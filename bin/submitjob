@@ -220,20 +220,20 @@ if ($nNodes){
 
 # Set GPU node specific options
 my $sGpuOptions = "";
-if ($sQueue eq ""){
+if ($sQueue eq "gpu"){
    $sGpuOptions = "\n#BSUB -R a100\n#BSUB -gpu num=1";
 }
 if ($sQueue eq "gpuexpress"){
    $sGpuOptions = "\n#BSUB -R a100\n#BSUB -gpu num=1";
-   $sQueue = "";
+   $sQueue = "gpuexpress";
 }
 if ($sQueue eq "gpu_v100"){
    $sGpuOptions = "\n#BSUB -R v100\n#BSUB -gpu num=1";
-   $sQueue = "";
+   $sQueue = "gpu";
 }
 if ($sQueue eq "gpu_a100"){
    $sGpuOptions = "\n#BSUB -R a100\n#BSUB -gpu num=1";
-   $sQueue = "";
+   $sQueue = "gpu";
 }
 
 # General queue options
