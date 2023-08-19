@@ -111,7 +111,7 @@ do
       ENDTIME=`date`
       ENDCALC=`date +%s`
       MONTIME=`display_time $((ENDCALC-STARTCALC))`
-      echo -e "No more${MONITORNAME} monitored processes on ${HOSTNAME}.\n\nMonitor start :  ${STARTTIME}.\nMonitor end   :  ${ENDTIME}\nMonitored for :  ${MONTIME}"" \
+      echo -e "No more${MONITORNAME} monitored processes on ${HOSTNAME}.\n\nMonitor start :  ${STARTTIME}.\nMonitor end   :  ${ENDTIME}\nMonitored for :  ${MONTIME}" \
          | mail -s "No more${MONITORNAME} monitored processes on ${HOSTNAME}" $EMAIL_ADDRESS
       MONITOR=0
       >&2 echo "${ENDTIME} -- No more${MONITORNAME} monitored processes on ${HOSTNAME}. Exiting."
