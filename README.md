@@ -236,3 +236,28 @@ Arguments:
 
 ```
 
+
+
+#### mailonfinishedprocs
+
+Utility script to monitor processes and send an email if there are no more processes running with specific process ID(s) or command names. This script is particularly useful to monitor for completion of `dsmc archive` jobs that can sometimes take days to complete in a screen session.
+
+```
+   Usage: mailonfinishedprocs [ -J <job-name> ] -m <email-address> [ pid1 ... pidN ]
+
+   Monitor your processes by process id or command name and send email if 
+   there are no more monitored processes running.  Use 'screen' or 
+   'screen -dm' (to start in detached mode) to ensure the monitor job remains 
+   running even after your ssh session ends.
+
+   Arguments:
+    -m <string>
+      Email address to send the notification to (required).
+    -J <string>
+      Monitor processes containing a specific command string (optional)
+    -n <string>
+      Assign a name to the monitor task (optional)
+    -help
+      This help message
+```
+

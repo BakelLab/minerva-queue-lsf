@@ -1,0 +1,121 @@
+#!/bin/sh
+
+# 21.01.2023 17:05:27 EST
+# Harm van Bakel <hvbakel@gmail.com>
+
+# Aliases
+alias awkt="awk -F '\t' -v OFS='\t'"
+alias sortt="sort -t $'\t'"
+
+# Process command line arguments
+EMAIL_ADDRESS=""
+PROCCMD=""
+MONITORNAME=""
+while getopts "m:J:n:u" opt; do
+   case $opt in
+
+   m)
+      EMAIL_ADDRESS="$OPTARG"
+      ;;
+   
+   J)
+      PROCCMD="$OPTARG"
+      ;;
+
+   n)
+      MONITORNAME=" '$OPTARG'"
+      ;;
+     
+   *)
+      echo "Incorrect options provided"
+      exit 1
+      ;;
+
+   esac
+done
+
+# Grab other arguments
+shift $((OPTIND-1))
+PROCIDS=$@
+
+# Check arguments and produce a help message
+if [ ! "$EMAIL_ADDRESS" ];
+then
+  cat << EOF
+
+   Usage: mailonfinishedprocs [ -J <job-name> ] -m <email-address> [ pid1 ... pidN ]
+
+   Monitor your processes by process id or command name and send email if 
+   there are no more monitored processes running.  Use 'screen' or 
+   'screen -dm' (to start in detached mode) to ensure the monitor job remains 
+   running even after your ssh session ends.
+
+   Arguments:
+    -m <string>
+      Email address to send the notification to (required).
+    -J <string>
+      Monitor processes containing a specific command string (optional)
+    -n <string>
+      Assign a name to the monitor task (optional)
+    -help
+      This help message
+
+EOF
+  exit 0
+fi
+
+# Define function to format the elapsed time
+function display_time() {
+  local T=$1
+  local D=$((T/60/60/24))
+  local H=$((T/60/60%24))
+  local M=$((T/60%60))
+  local S=$((T%60))
+  (( $D > 0 )) && printf '%d day%s ' $D $( (( $D > 1 )) && echo s)
+  (( $H > 0 )) && printf '%d hour%s ' $H $( (( $H > 1 )) && echo s)
+  (( $M > 0 )) && printf '%d minute%s ' $M $( (( $M > 1 )) && echo s)
+  (( $D > 0 || $H > 0 || $M > 0 )) && printf 'and '
+  printf '%d second%s\n' $S $( (( $S != 1 )) && echo s)
+}
+
+
+# It can take some time for the scheduler to pick up on newly submitted jobs. Therefore we
+# add a brief delay before we begin checking the job queue
+STARTTIME=`date`
+STARTCALC=`date +%s`
+>&2 echo "${STARTTIME} -- Starting monitoring of${MONITORNAME} processes on this server (command:  ps -u ${USER} -fe --no-headers ${PROCIDS} | grep '${PROCCMD}')"
+>&2 echo "${STARTTIME} -- Notification will be sent to '${EMAIL_ADDRESS}' when the processes are done"
+sleep 20
+
+# Monitor job queue
+MONITOR=1
+NUMPROCIDS=0
+NUMPROCCMD=0
+while [ ${MONITOR} == 1 ]
+do
+   # Check for specific proc IDs
+   if [[ "${PROCIDS}" != "" ]]
+   then
+      NUMPROCIDS=`ps --no-headers ${PROCIDS} | wc -l`
+   fi
+   
+   # Check for specific command names (after filtering for user processes and excluding any parent/child processes related to this script)
+   if [[ "${PROCCMD}" != "" ]]
+   then
+      NUMPROCCMD=`ps -u ${USER} -f --no-headers | grep "${PROCCMD}" | grep -v '00:00:.. grep' | grep -v 'mailonfinishedprocs' | wc -l`
+   fi
+     
+   # Send mail if there are no more monitored processes
+   if [[ ${NUMPROCIDS} == 0 && ${NUMPROCCMD} == 0 ]]
+   then
+      ENDTIME=`date`
+      ENDCALC=`date +%s`
+      MONTIME=`display_time $((ENDCALC-STARTCALC))`
+      echo -e "No more${MONITORNAME} monitored processes on ${HOSTNAME}.\n\nMonitor start :  ${STARTTIME}.\nMonitor end   :  ${ENDTIME}\nMonitored for :  ${MONTIME}"" \
+         | mail -s "No more${MONITORNAME} monitored processes on ${HOSTNAME}" $EMAIL_ADDRESS
+      MONITOR=0
+      >&2 echo "${ENDTIME} -- No more${MONITORNAME} monitored processes on ${HOSTNAME}. Exiting."
+   else
+      sleep 30
+   fi
+done
