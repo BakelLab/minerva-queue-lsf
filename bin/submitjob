@@ -27,7 +27,7 @@ use File::Temp qw(tempfile tempdir);
 # Print help message if called without arguments
 if ( (@ARGV<1) or ($ARGV[0] eq '-h') ) {
    my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
-   die <<HELP
+   exit 0 <<HELP
 
    Usage: $sScriptName [walltime] [-mpcnWqsk] { <command> | selfsched <file> }
 
