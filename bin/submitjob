@@ -27,7 +27,7 @@ use File::Temp qw(tempfile tempdir);
 # Print help message if called without arguments
 if ( (@ARGV<1) or ($ARGV[0] eq '-h') ) {
    my $sScriptName = ($0 =~ /^.*\/(.+$)/) ? $1 : $0;
-   exit 0 <<HELP
+   print <<HELP;
 
    Usage: $sScriptName [walltime] [-mpcnWqsk] { <command> | selfsched <file> }
 
@@ -71,6 +71,7 @@ if ( (@ARGV<1) or ($ARGV[0] eq '-h') ) {
    Any job exceeding the requested run time and memory limits will be killed automatically.
     
 HELP
+exit 0;
 }
 
 # Set up job output and TMP directories
