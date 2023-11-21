@@ -4,8 +4,20 @@
 
 The minerva-queue repository contains a set of scripts to make it easier to interact with the queueing system on the Minerva cluster. A brief description of each script is provided below and detailed help is also available by running each script with the -h argument.
 
-## Installation ##
+## Installation
 
+
+#### Conda
+
+The omics-pipeline package is available as a conda package at https://anaconda.org/hvbakel/omics-pipelines.  To install this package run the following:
+
+```bash
+conda install -c conda-forge -c bioconda -c hvbakel -n omics-pipelines omics-pipelines 
+```
+
+
+
+#### Github
 
 1. Get the most recent version of the minerva queue utilities from Bitbucket:
 
@@ -19,13 +31,7 @@ The minerva-queue repository contains a set of scripts to make it easier to inte
       export PATH="$PATH:~/opt/minerva-queue-lsf/bin"
       ```
 
-3. Optionally, you can symlink the content of the 'www' folder to your minerva web folder (~/www), for example:
-
-      ```bash
-      ln -S /path/to/minerva-queue-lsf/www ~/www/jobs
-      ```
-
-This will allow you to check job status through a web browser on  your computer/phone/tablet, using the url https://<username>.u.hpc.mssm.edu/jobs Note that you will need to set the correct path to your minerva-queue-lsf repository  bin folder by copying the content of the file 'config.sample.php' to 'config.php' and editing the path.
+      
 
 Be sure to periodically run 'git pull' in the minerva-queue-lsf directory as the code is updated frequently to stay up to date with the latest queue changes and to add new features.
 
