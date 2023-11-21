@@ -12,7 +12,7 @@ The minerva-queue repository contains a set of scripts to make it easier to inte
 The omics-pipeline package is available as a conda package at https://anaconda.org/hvbakel/omics-pipelines.  To install this package run the following:
 
 ```bash
-conda install -c conda-forge -c bioconda -c hvbakel -n omics-pipelines omics-pipelines 
+conda install -c conda-forge -c bioconda -c hvbakel -n minerva-queue-lsf minerva-queue-lsf 
 ```
 
 
