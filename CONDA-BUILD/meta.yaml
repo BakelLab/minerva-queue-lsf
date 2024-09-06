@@ -1,0 +1,31 @@
+{% set name = "minerva-queue-lsf" %}
+{% set version = "1.0" %}
+
+package:
+  name: "{{ name|lower }}"
+  version: "{{ version }}"
+
+source:
+  git_url: https://github.com/BakelLab/{{ name }}.git
+
+build:
+  merge_build_host: True
+  number: 0
+
+requirements:
+  host:
+    - perl
+  run:
+    - perl
+
+test:
+  commands:
+    # The test consists of running the 'submitjob -h' command which
+    # simply prints a help message and then exits with code 0.
+    - submitjob -h
+
+about:
+  home: https://github.com/BakelLab/{{ name }}/
+  license: MIT
+  license_family: MIT
+  summary: Collection of scripts to make it easier to interact with the queueing system on the Icahn School of Medicine 'Minerva' cluster.
