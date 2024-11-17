@@ -105,6 +105,7 @@ do
       ENDTIME=`date`
       ENDCALC=`date +%s`
       MONTIME=`display_time $((ENDCALC-STARTCALC))`
+      EMAIL_ADDRESS="${EMAIL_ADDRESS//,/ }"
       echo -e "No more${MONITORNAME} monitored jobs in HPC queue on ${HOSTNAME}.\n\nMonitor start :  ${STARTTIME}.\nMonitor end   :  ${ENDTIME}\nMonitored for :  ${MONTIME}" \
          | mail -s "No more${MONITORNAME} monitored jobs in HPC queue" $EMAIL_ADDRESS
       MONITOR=0
