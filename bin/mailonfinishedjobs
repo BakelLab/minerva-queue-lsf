@@ -96,21 +96,40 @@ STARTCALC=`date +%s`
 sleep 20
 
 # Monitor job queue
+# Monitor job queue
 MONITOR=1
-while [ ${MONITOR} == 1 ]
-do
-   NUMJOBS=`bjobs ${JOBNAME} ${QUEUE} ${JOBIDS} | grep -vP 'JOBID|EXIT|DONE' | wc -l`
-   if [[ ${NUMJOBS} == 0 ]]
-   then
-      ENDTIME=`date`
-      ENDCALC=`date +%s`
-      MONTIME=`display_time $((ENDCALC-STARTCALC))`
-      EMAIL_ADDRESS="${EMAIL_ADDRESS//,/ }"
-      echo -e "No more${MONITORNAME} monitored jobs in HPC queue on ${HOSTNAME}.\n\nMonitor start :  ${STARTTIME}.\nMonitor end   :  ${ENDTIME}\nMonitored for :  ${MONTIME}" \
-         | mail -s "No more${MONITORNAME} monitored jobs in HPC queue" $EMAIL_ADDRESS
-      MONITOR=0
-      >&2 echo "${ENDTIME} -- No more${MONITORNAME} jobs in HPC queue. Exiting."
-   else
-      sleep 30
-   fi
+# Define wait times for success and failure cases
+NORMAL_WAIT=30   # 30 seconds
+ERROR_WAIT=60    # 1 minute
+
+while [ ${MONITOR} == 1 ]; do
+    # Capture both STDOUT and STDERR into a variable. The '2>&1' redirects STDERR to STDOUT.
+    BJOBS_OUTPUT=$(bjobs -noheader ${JOBNAME} ${QUEUE} ${JOBIDS} 2>&1)
+
+    # Check the exit code of the bjobs command. 0 means success.
+    if [[ $? -ne 0 ]]; then
+        # bjobs failed. Print the error and wait longer before retrying.
+        >&2 echo "$(date) -- LSF connection error. Retrying in ${ERROR_WAIT}s."
+        >&2 echo "LSF Message: ${BJOBS_OUTPUT}"
+        sleep ${ERROR_WAIT}
+    else
+        # bjobs succeeded. Proceed with job counting.
+        NUMJOBS=$(echo "${BJOBS_OUTPUT}" | grep -v -E 'EXIT|DONE' | wc -l)
+
+        if [[ ${NUMJOBS} -eq 0 ]]; then
+            ENDTIME=`date`
+            ENDCALC=`date +%s`
+            MONTIME=`display_time $((ENDCALC-STARTCALC))`
+            EMAIL_ADDRESS="${EMAIL_ADDRESS//,/ }"
+
+            echo -e "No more${MONITORNAME} monitored jobs in HPC queue on ${HOSTNAME}.\n\nMonitor start :  ${STARTTIME}.\nMonitor end    :  ${ENDTIME}\nMonitored for :  ${MONTIME}" \
+                | mail -s "No more${MONITORNAME} monitored jobs in HPC queue" $EMAIL_ADDRESS
+
+            MONITOR=0
+            >&2 echo "${ENDTIME} -- No more${MONITORNAME} jobs in HPC queue. Exiting."
+        else
+            # Jobs are still running, wait for the normal interval
+            sleep ${NORMAL_WAIT}
+        fi
+    fi
 done
