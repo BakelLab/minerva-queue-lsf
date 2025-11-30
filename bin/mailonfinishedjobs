@@ -114,7 +114,7 @@ while [ ${MONITOR} == 1 ]; do
         sleep ${ERROR_WAIT}
     else
         # bjobs succeeded. Proceed with job counting.
-        NUMJOBS=$(echo "${BJOBS_OUTPUT}" | grep -v -E 'EXIT|DONE' | wc -l)
+        NUMJOBS=$(echo "${BJOBS_OUTPUT}" | grep -v -E 'EXIT|DONE|is not found' | wc -l)
 
         if [[ ${NUMJOBS} -eq 0 ]]; then
             ENDTIME=`date`
